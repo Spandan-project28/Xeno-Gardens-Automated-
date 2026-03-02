@@ -1,0 +1,483 @@
+================================================================
+  XENO GARDEN — ESP8266 CONNECTION GUIDE
+  For Testing the Mobile App with Real Sensors
+================================================================
+
+  Board:  NodeMCU ESP8266 (ESP-12E Module)
+  Date:   March 2026
+
+  This guide gives you EVERY connection detail to wire up
+  the following components to your ESP8266:
+
+    1. Soil Moisture Sensor (Analog)
+    2. Rain Sensor Module (Digital)
+    3. DHT11 Temperature & Humidity Sensor (Digital)
+    4. 16x2 LCD Display with I2C Adapter (I2C)
+
+
+================================================================
+  IMPORTANT: ESP8266 vs ESP32 DIFFERENCES
+================================================================
+
+  The ESP8266 is NOT the same as the ESP32. Key differences:
+
+  • ESP8266 has only ONE analog pin (A0), range 0–1023 (10-bit)
+  • ESP32 has multiple analog pins, range 0–4095 (12-bit)
+  • ESP8266 GPIO numbering is DIFFERENT from pin labels on board
+  • ESP8266 runs at 3.3V logic — do NOT apply 5V to GPIO pins
+  • The NodeMCU board labels (D0–D8) map to different GPIO numbers
+
+  NodeMCU Pin Label → Actual GPIO Number:
+  ─────────────────────────────────────────
+    D0  →  GPIO 16
+    D1  →  GPIO 5    (also I2C SCL)
+    D2  →  GPIO 4    (also I2C SDA)
+    D3  →  GPIO 0
+    D4  →  GPIO 2    (Built-in LED)
+    D5  →  GPIO 14
+    D6  →  GPIO 12
+    D7  →  GPIO 13
+    D8  →  GPIO 15
+    A0  →  ADC0      (Analog Input, 0–1023, max 3.3V)
+
+
+================================================================
+  COMPONENTS LIST (What You Need)
+================================================================
+
+  Qty   Component                          Approx Cost (INR)
+  ───   ─────────────────────────────────  ─────────────────
+  1     NodeMCU ESP8266 Dev Board          ₹200-350
+  1     Capacitive Soil Moisture Sensor    ₹100-150
+  1     Rain Sensor Module (with board)    ₹60-100
+  1     DHT11 Temperature + Humidity       ₹80-120
+  1     16x2 LCD with I2C Backpack         ₹150-200
+  1     Breadboard (830 points)            ₹100
+  1     Jumper Wires (M-M, M-F bundle)     ₹80-100
+  1     Micro-USB Cable (for NodeMCU)      ₹50
+                                           ─────────────────
+                                   TOTAL:  ₹820 - ₹1,170
+
+  OPTIONAL but recommended:
+  - 10K ohm resistor (pull-up for DHT11 DATA line)
+  - Voltage divider resistors (if soil sensor outputs > 3.3V)
+
+
+================================================================
+  PIN ASSIGNMENT TABLE
+================================================================
+
+  NodeMCU Pin    GPIO     Component             Signal Type
+  ───────────    ─────    ────────────────────   ───────────
+  A0             ADC0     Soil Moisture → AO     Analog In
+  D5             GPIO14   Rain Sensor → DO       Digital In
+  D6             GPIO12   DHT11 → DATA           Digital In
+  D1             GPIO5    LCD I2C → SCL           I2C Clock
+  D2             GPIO4    LCD I2C → SDA           I2C Data
+  3V3            —        DHT11 VCC, Rain VCC     Power 3.3V
+  VIN (5V)       —        LCD VCC, Soil VCC       Power 5V
+  GND            —        ALL sensor GNDs         Ground
+
+
+================================================================
+  DETAILED WIRING — SENSOR BY SENSOR
+================================================================
+
+
+────────────────────────────────────────────────────────────────
+  1. SOIL MOISTURE SENSOR
+────────────────────────────────────────────────────────────────
+
+  Sensor Type: Capacitive Soil Moisture Sensor v1.2 / v2.0
+  Signal:      Analog output (0 to ~3.3V)
+  Pins on sensor: VCC, GND, AOUT
+
+  CONNECTIONS:
+  ┌──────────────────┬────────────────────────────────────────┐
+  │  Sensor Pin      │  Connect To                           │
+  ├──────────────────┼────────────────────────────────────────┤
+  │  VCC             │  NodeMCU VIN pin (5V USB power)       │
+  │  GND             │  NodeMCU GND pin                      │
+  │  AOUT            │  NodeMCU A0 pin                       │
+  └──────────────────┴────────────────────────────────────────┘
+
+  ⚠ IMPORTANT NOTES:
+  • The ESP8266 A0 pin can only handle 0–3.3V input.
+  • Most capacitive soil moisture sensors output within 0–3V
+    range, which is safe for A0.
+  • If you're using a RESISTIVE soil moisture sensor that
+    outputs up to 5V, you MUST use a voltage divider:
+      - Connect sensor AOUT → 10K resistor → A0
+      - Connect A0 → 20K resistor → GND
+      This scales 5V down to ~3.3V.
+  • A0 is the ONLY analog pin on the ESP8266. All other
+    sensors must use digital interfaces.
+
+  PHYSICAL PLACEMENT:
+  • Push the sensor prongs into the soil
+  • Insert about 2/3 of the prong length
+  • Keep the electronic board ABOVE ground and AWAY from water
+
+
+────────────────────────────────────────────────────────────────
+  2. RAIN SENSOR MODULE
+────────────────────────────────────────────────────────────────
+
+  Sensor Type: Rain Detection Module (2-part: sensing board
+               + control/comparator board)
+  Signal:      Digital output (DO) — HIGH = no rain, LOW = rain
+  Pins on control board: VCC, GND, DO, AO
+
+  CONNECTIONS:
+  ┌──────────────────┬────────────────────────────────────────┐
+  │  Sensor Pin      │  Connect To                           │
+  ├──────────────────┼────────────────────────────────────────┤
+  │  VCC             │  NodeMCU 3V3 pin (3.3V)               │
+  │  GND             │  NodeMCU GND pin                      │
+  │  DO              │  NodeMCU D5 pin (GPIO 14)             │
+  │  AO              │  (Leave unconnected — A0 is used      │
+  │                  │   by soil moisture sensor already)     │
+  └──────────────────┴────────────────────────────────────────┘
+
+  Also connect the 2-pin cable from the sensing board (the
+  flat rain-detecting plate) to the 2-pin header on the
+  control board. This cable has no polarity — either way works.
+
+  ⚠ IMPORTANT NOTES:
+  • The DO pin gives a simple HIGH/LOW digital signal.
+  • The potentiometer on the control board adjusts sensitivity.
+    Turn it to find the sweet spot where a few drops register.
+  • DO output is at 3.3V level — safe for ESP8266 GPIO.
+
+  PHYSICAL PLACEMENT:
+  • Mount the flat sensing board FACING UP toward the sky
+  • Tilt it slightly (~30°) so water slides off after detection
+  • Place it outdoors in an open area
+  • Keep the control board dry, near the ESP8266
+
+
+────────────────────────────────────────────────────────────────
+  3. DHT11 TEMPERATURE & HUMIDITY SENSOR
+────────────────────────────────────────────────────────────────
+
+  Sensor Type: DHT11 module (3-pin breakout board version)
+  Signal:      Single-wire digital protocol on DATA pin
+  Pins on module: VCC (or +), DATA (or OUT), GND (or -)
+
+  CONNECTIONS:
+  ┌──────────────────┬────────────────────────────────────────┐
+  │  Sensor Pin      │  Connect To                           │
+  ├──────────────────┼────────────────────────────────────────┤
+  │  VCC  (+)        │  NodeMCU 3V3 pin (3.3V)               │
+  │  DATA (OUT/S)    │  NodeMCU D6 pin (GPIO 12)             │
+  │  GND  (-)        │  NodeMCU GND pin                      │
+  └──────────────────┴────────────────────────────────────────┘
+
+  OPTIONAL but RECOMMENDED:
+  • Add a 10K ohm pull-up resistor between DATA and VCC (3.3V)
+      DATA pin ────┬──── NodeMCU D6
+                   │
+                 [10KΩ]
+                   │
+                 3.3V
+  • This makes the signal more reliable and prevents -999 errors
+
+  ⚠ IMPORTANT NOTES:
+  • If using the RAW DHT11 (4-pin blue component, not a module),
+    pin 1 = VCC, pin 2 = DATA, pin 3 = NC (skip), pin 4 = GND.
+    The pull-up resistor is REQUIRED for the raw version.
+  • DHT11 can run at 3.3V — no level shifting needed.
+  • Reads temperature (0–50°C) and humidity (20–80% RH).
+  • Minimum 2 seconds between readings.
+
+  PHYSICAL PLACEMENT:
+  • Keep in open air for accurate readings
+  • Avoid direct sunlight (it will read higher temperatures)
+  • Keep away from the water pump and wet areas
+  • Mount at plant/crop height level
+
+
+────────────────────────────────────────────────────────────────
+  4. 16x2 LCD DISPLAY WITH I2C BACKPACK
+────────────────────────────────────────────────────────────────
+
+  Display Type:  16 characters × 2 lines LCD with I2C adapter
+                 (PCF8574 or PCF8574T I2C backpack soldered on)
+  Signal:        I2C protocol (only needs 2 data wires)
+  Pins on I2C backpack: VCC, GND, SDA, SCL
+
+  CONNECTIONS:
+  ┌──────────────────┬────────────────────────────────────────┐
+  │  LCD I2C Pin     │  Connect To                           │
+  ├──────────────────┼────────────────────────────────────────┤
+  │  VCC             │  NodeMCU VIN pin (5V USB power)       │
+  │  GND             │  NodeMCU GND pin                      │
+  │  SDA             │  NodeMCU D2 pin (GPIO 4)              │
+  │  SCL             │  NodeMCU D1 pin (GPIO 5)              │
+  └──────────────────┴────────────────────────────────────────┘
+
+  ⚠ IMPORTANT NOTES:
+  • The LCD needs 5V to power it (3.3V will make it too dim).
+  • The I2C data lines (SDA, SCL) are 3.3V tolerant — safe
+    to connect directly to the ESP8266 GPIO pins.
+  • The default I2C address is usually 0x27 or 0x3F.
+    If your LCD doesn't show anything, try the other address.
+  • D1/D2 are the default I2C pins on ESP8266 — you MUST
+    use these specific pins for I2C to work without extra
+    configuration.
+  • The blue potentiometer on the back adjusts CONTRAST.
+    Turn it with a small screwdriver until text is visible.
+
+  LCD DISPLAY CONTENT (what it will show):
+  ┌────────────────────┐
+  │ T:25°C  H:60%      │  ← Line 1: Temperature & Humidity
+  │ Soil:45% Rain:No   │  ← Line 2: Soil Moisture & Rain
+  └────────────────────┘
+
+  FINDING YOUR LCD I2C ADDRESS:
+  • Upload the I2C Scanner sketch to your ESP8266
+  • Open Serial Monitor at 115200 baud
+  • It will print the detected address (0x27 or 0x3F)
+  • Use that address in your firmware code
+
+
+================================================================
+  COMPLETE WIRING DIAGRAM (ASCII)
+================================================================
+
+         ┌───────────────────────────────────────────┐
+         │          NodeMCU ESP8266 Board             │
+         │                                           │
+   USB ──┤ MICRO-USB (Power + Programming)           │
+         │                                           │
+         │  VIN (5V) ──┬── Soil Moisture VCC         │
+         │             └── LCD I2C VCC               │
+         │                                           │
+         │  3V3 ───────┬── DHT11 VCC                 │
+         │             └── Rain Sensor VCC           │
+         │                                           │
+         │  GND ───────┬── Soil Moisture GND         │
+         │             ├── DHT11 GND                 │
+         │             ├── Rain Sensor GND           │
+         │             └── LCD I2C GND               │
+         │                                           │
+         │  A0  ←──────── Soil Moisture AOUT         │
+         │  D5 (GPIO14) ←── Rain Sensor DO           │
+         │  D6 (GPIO12) ←── DHT11 DATA               │
+         │  D1 (GPIO5) ──── LCD I2C SCL              │
+         │  D2 (GPIO4) ──── LCD I2C SDA              │
+         │                                           │
+         └───────────────────────────────────────────┘
+
+
+================================================================
+  BREADBOARD LAYOUT GUIDE
+================================================================
+
+  Here's how to physically lay things out on a breadboard:
+
+  1. Place the NodeMCU board CENTERED on the breadboard
+     - It straddles the center gap
+     - Pins accessible on both sides
+
+  2. Run POWER RAILS:
+     - Connect NodeMCU GND → breadboard BLUE rail (both sides)
+     - Connect NodeMCU 3V3 → breadboard RED rail (LEFT side)
+     - Connect NodeMCU VIN → breadboard RED rail (RIGHT side)
+     - Bridge both BLUE (GND) rails with a jumper at the bottom
+
+  3. Place sensors around the breadboard edges:
+
+     LEFT SIDE (3.3V rail):
+     ├── DHT11 module (plug directly into breadboard)
+     └── Rain sensor control board (use jumper wires)
+
+     RIGHT SIDE (5V rail):
+     ├── Soil moisture sensor (use jumper wires, sensor in soil)
+     └── LCD display (use jumper wires to I2C backpack)
+
+  4. Wire each sensor to its designated pin (see table above)
+
+
+================================================================
+  WIRE COLOR CODING (Suggested)
+================================================================
+
+  Use consistent colors to avoid confusion:
+
+  Color        Purpose
+  ─────        ────────────────────────────────────
+  RED          VCC / Power (3.3V or 5V)
+  BLACK        GND / Ground
+  YELLOW       Analog signal (Soil → A0)
+  BLUE         Rain sensor digital signal (→ D5)
+  GREEN        DHT11 data signal (→ D6)
+  WHITE        I2C SDA (LCD → D2)
+  ORANGE       I2C SCL (LCD → D1)
+
+
+================================================================
+  POWER INFORMATION
+================================================================
+
+  The NodeMCU ESP8266 is powered via the Micro-USB port.
+
+  • Plug it into your LAPTOP/PC for development + Serial Monitor
+  • Or use any 5V USB phone charger for standalone operation
+  • The board provides:
+    - VIN = ~5V (direct from USB)
+    - 3V3 = 3.3V (regulated by onboard regulator)
+  • Total current draw for this setup: ~150-200mA
+  • Any standard USB port or charger can handle this easily
+
+  ⚠ Do NOT connect an external 5V supply to VIN while USB
+    is also connected — pick one power source at a time.
+
+
+================================================================
+  PRE-POWER CHECKLIST (DO THIS BEFORE PLUGGING IN!)
+================================================================
+
+  Before applying power, verify these connections TWICE:
+
+  [  ] All GND wires go to GND (not VCC!)
+  [  ] Soil moisture VCC goes to VIN (5V), not 3V3
+  [  ] DHT11 VCC goes to 3V3, not VIN
+  [  ] Rain sensor VCC goes to 3V3, not VIN
+  [  ] LCD VCC goes to VIN (5V), not 3V3
+  [  ] A0 has only ONE sensor connected (soil moisture)
+  [  ] No bare wires touching each other
+  [  ] No wires shorting VCC to GND
+  [  ] LCD I2C SDA → D2 (not D1)
+  [  ] LCD I2C SCL → D1 (not D2)
+
+  ⚠ GETTING SDA AND SCL SWAPPED IS THE #1 LCD MISTAKE!
+
+
+================================================================
+  TESTING AFTER WIRING (Step by Step)
+================================================================
+
+  1. POWER ON
+     - Plug in USB cable
+     - The NodeMCU blue LED should blink briefly
+     - Open Arduino IDE Serial Monitor at 115200 baud
+
+  2. TEST SOIL MOISTURE
+     - Hold sensor in AIR → should read a HIGH value (~800-1024)
+     - Dip sensor in WATER → should read LOW value (~200-400)
+     - If readings don't change, check A0 wiring
+
+  3. TEST DHT11
+     - Serial Monitor should show temperature and humidity
+     - If it shows -999 or NaN → check wiring + add pull-up resistor
+     - Values should be reasonable (room temp ~25°C, humidity ~50%)
+
+  4. TEST RAIN SENSOR
+     - Dry board → Serial reads HIGH (1) = No Rain
+     - Put water drops on board → Serial reads LOW (0) = Rain
+     - Adjust sensitivity using the potentiometer on control board
+
+  5. TEST LCD
+     - Should light up (blue backlight) when powered
+     - If backlight is on but no text → adjust contrast potentiometer
+     - If nothing at all → check 5V power and I2C address
+     - Try I2C address 0x27, if that fails try 0x3F
+
+  6. TEST WiFi CONNECTION
+     - Serial Monitor should show "Connecting to WiFi..."
+     - Then show the assigned IP address
+     - If it fails: check SSID and password in code
+     - ESP8266 only supports 2.4GHz WiFi (NOT 5GHz!)
+
+
+================================================================
+  TROUBLESHOOTING
+================================================================
+
+  Problem:  LCD backlight on but no text visible
+  Fix:      Turn the blue potentiometer on the I2C backpack
+            slowly until text appears. It's the CONTRAST knob.
+
+  Problem:  LCD shows nothing at all (no backlight)
+  Fix:      Check that VCC goes to VIN (5V), not 3V3.
+            LCD needs 5V to work properly.
+
+  Problem:  LCD shows garbage characters
+  Fix:      Wrong I2C address. Run I2C scanner sketch.
+            Try 0x27 or 0x3F.
+
+  Problem:  Soil moisture reads 1024 constantly
+  Fix:      Sensor not connected to A0, or VCC not connected.
+
+  Problem:  DHT11 gives -999 or NaN
+  Fix:      1) Check VCC is 3.3V  2) Add 10K pull-up resistor
+            3) Verify DATA goes to correct pin (D6/GPIO12)
+
+  Problem:  Rain sensor always reads the same value
+  Fix:      Check the 2-wire connection between the sensing
+            board and the control board. Adjust potentiometer.
+
+  Problem:  WiFi won't connect
+  Fix:      ESP8266 only works with 2.4GHz networks.
+            Make sure your router is broadcasting 2.4GHz.
+            Double-check SSID and password (case sensitive!).
+
+  Problem:  I2C devices not detected
+  Fix:      Ensure SDA → D2 (GPIO4) and SCL → D1 (GPIO5).
+            These are the ONLY I2C pins on ESP8266.
+
+
+================================================================
+  LIBRARIES NEEDED IN ARDUINO IDE
+================================================================
+
+  Install these via Arduino IDE → Sketch → Include Library
+  → Manage Libraries:
+
+  1. ESP8266WiFi          (comes with ESP8266 board package)
+  2. ESP8266HTTPClient    (comes with ESP8266 board package)
+  3. DHT sensor library   (by Adafruit — search "DHT sensor")
+  4. Adafruit Unified Sensor (dependency for DHT library)
+  5. LiquidCrystal_I2C    (by Frank de Brabander)
+  6. Wire                 (built-in — for I2C communication)
+
+  BOARD SETUP IN ARDUINO IDE:
+  - File → Preferences → Additional Board URLs →
+    Add: http://arduino.esp8266.com/stable/package_esp8266com_index.json
+  - Tools → Board → ESP8266 Boards → NodeMCU 1.0 (ESP-12E)
+  - Tools → Upload Speed → 115200
+  - Tools → Port → (select your COM port)
+
+
+================================================================
+  SUMMARY — QUICK REFERENCE CARD
+================================================================
+
+  ┌────────────────┬──────────┬──────────────────────────┐
+  │ COMPONENT      │ PIN      │ NODEMCU CONNECTION       │
+  ├────────────────┼──────────┼──────────────────────────┤
+  │ Soil Moisture  │ VCC      │ VIN (5V)                 │
+  │                │ GND      │ GND                      │
+  │                │ AOUT     │ A0                       │
+  ├────────────────┼──────────┼──────────────────────────┤
+  │ Rain Sensor    │ VCC      │ 3V3                      │
+  │                │ GND      │ GND                      │
+  │                │ DO       │ D5 (GPIO 14)             │
+  ├────────────────┼──────────┼──────────────────────────┤
+  │ DHT11          │ VCC (+)  │ 3V3                      │
+  │                │ GND (-)  │ GND                      │
+  │                │ DATA     │ D6 (GPIO 12)             │
+  ├────────────────┼──────────┼──────────────────────────┤
+  │ LCD 16x2 I2C   │ VCC      │ VIN (5V)                 │
+  │                │ GND      │ GND                      │
+  │                │ SDA      │ D2 (GPIO 4)              │
+  │                │ SCL      │ D1 (GPIO 5)              │
+  └────────────────┴──────────┴──────────────────────────┘
+
+  Total wires needed: ~12 jumper wires
+  Power: USB cable only (no external power supply needed)
+
+================================================================
+  END OF GUIDE — Happy Building! 🌱
+================================================================
