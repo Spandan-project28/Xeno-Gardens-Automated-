@@ -40,7 +40,6 @@ const manualPumpControl = async (req, res, next) => {
             temperature: latestReading?.temperature || 0,
             humidity: latestReading?.humidity || 0,
             rain_status: latestReading?.rain_status || false,
-            ph_level: latestReading?.ph_level || 7,
             pump_status: action,
             automation_triggered: false, // manual override
         });

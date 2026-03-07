@@ -24,7 +24,6 @@ const submitSensorData = async (req, res, next) => {
             temperature,
             humidity,
             rain_status,
-            ph_level,
         } = req.body;
 
         // -------------------------------------------
@@ -48,7 +47,7 @@ const submitSensorData = async (req, res, next) => {
         // 2. Run automation logic BEFORE storing
         // -------------------------------------------
         const { pumpCommand, automationTriggered } = await evaluateAutomation(
-            { soil_moisture, temperature, humidity, rain_status, ph_level },
+            { soil_moisture, temperature, humidity, rain_status },
             device._id
         );
 
@@ -61,7 +60,6 @@ const submitSensorData = async (req, res, next) => {
             temperature,
             humidity,
             rain_status,
-            ph_level,
             pump_status: pumpCommand,
             automation_triggered: automationTriggered,
         });

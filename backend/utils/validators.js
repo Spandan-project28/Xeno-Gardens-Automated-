@@ -33,12 +33,6 @@ const validateSensorData = [
         .withMessage("rain_status is required")
         .isBoolean()
         .withMessage("rain_status must be a boolean"),
-
-    body("ph_level")
-        .notEmpty()
-        .withMessage("ph_level is required")
-        .isFloat({ min: 0, max: 14 })
-        .withMessage("ph_level must be between 0 and 14"),
 ];
 
 // ============================================

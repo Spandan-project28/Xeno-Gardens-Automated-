@@ -1,15 +1,25 @@
 // ============================================
-// ESP32 IoT Smart Drip Irrigation — Firmware
+// ESP8266 IoT Smart Drip Irrigation — Firmware
 // ============================================
-// Reads sensors → sends to backend → receives
-// pump command → controls relay/MOSFET.
+// Reads DHT11 (temp + humidity), soil moisture,
+// and rain sensor. Sends data to backend every
+// 30s. Receives pump ON/OFF command. Controls
+// relay. Falls back to local logic if backend
+// is unreachable.
+//
+// Hardware Connections (ESP8266 NodeMCU):
+//   DHT11 Signal    → D4  (GPIO2)
+//   Soil Moisture   → A0  (Analog)
+//   Rain Sensor D0  → D6  (GPIO12)
+//   Relay IN        → D5  (GPIO14)
 //
 // All config is in config.h — edit that file
 // for WiFi, pins, server URL, calibration, etc.
 // ============================================
 
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include "config.h"
@@ -21,6 +31,10 @@ DHT dht(DHT_PIN, DHT_TYPE);
 bool pumpState = false;
 bool backendReachable = true;
 unsigned long lastSendTime = 0;
+int failedAttempts = 0;
+
+// ---- WiFi Client (required for ESP8266 HTTPClient) ----
+WiFiClient wifiClient;
 
 // ============================================
 // SETUP
@@ -30,14 +44,13 @@ void setup() {
   delay(1000);
 
   debugPrint("\n🌱 ============================");
-  debugPrint("   Xeno Garden - ESP32 Firmware");
+  debugPrint("   Xeno Garden - ESP8266");
   debugPrint("   ============================\n");
 
   // Pin modes
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(RAIN_SENSOR_PIN, INPUT);
-  pinMode(SOIL_MOISTURE_PIN, INPUT);
-  pinMode(PH_SENSOR_PIN, INPUT);
+  // A0 doesn't need pinMode on ESP8266
 
   // Start with pump OFF
   digitalWrite(PUMP_PIN, PUMP_OFF);
@@ -47,6 +60,8 @@ void setup() {
 
   // Connect to WiFi
   connectWiFi();
+
+  debugPrint("✅ Setup complete. Starting sensor loop...\n");
 }
 
 // ============================================
@@ -70,32 +85,37 @@ void loop() {
     float temperature  = readTemperature();
     float humidity     = readHumidity();
     bool  rainDetected = readRainSensor();
-    float phLevel      = readPH();
 
-    // 2. Print readings
+    // 2. Validate readings (skip bad DHT reads)
+    if (temperature < -900 || humidity < -900) {
+      debugPrint("⚠️  Skipping cycle — DHT read failed");
+      return;
+    }
+
+    // 3. Print readings to Serial Monitor
     debugPrint("📊 --- Sensor Readings ---");
     debugPrint("   Moisture:  " + String(soilMoisture, 1) + "%");
     debugPrint("   Temp:      " + String(temperature, 1) + "°C");
     debugPrint("   Humidity:  " + String(humidity, 1) + "%");
-    debugPrint("   Rain:      " + String(rainDetected ? "YES" : "NO"));
-    debugPrint("   pH:        " + String(phLevel, 1));
+    debugPrint("   Rain:      " + String(rainDetected ? "YES ☔" : "NO ☀️"));
+    debugPrint("   Pump:      " + String(pumpState ? "ON 💧" : "OFF"));
 
-    // 3. Send to backend and get pump command
+    // 4. Send to backend and get pump command
     String pumpCommand = sendToBackend(
-      soilMoisture, temperature, humidity, rainDetected, phLevel
+      soilMoisture, temperature, humidity, rainDetected
     );
 
-    // 4. Control pump
+    // 5. Control pump based on response
     if (pumpCommand == "ON") {
       activatePump(true);
     } else if (pumpCommand == "OFF") {
       activatePump(false);
     } else if (pumpCommand == "FALLBACK") {
-      // Backend unreachable — use local logic
+      // Backend unreachable — use local safety logic
       localFallbackLogic(soilMoisture, temperature, rainDetected);
     }
 
-    debugPrint("🔌 Pump: " + String(pumpState ? "ON" : "OFF"));
+    debugPrint("🔌 Pump: " + String(pumpState ? "ON 💧" : "OFF"));
     debugPrint("-------------------------\n");
   }
 }
@@ -105,11 +125,20 @@ void loop() {
 // ============================================
 
 float readSoilMoisture() {
-  int raw = analogRead(SOIL_MOISTURE_PIN);
+  // ESP8266 A0: 10-bit ADC (0-1023)
+  // Take average of 5 readings for stability
+  long total = 0;
+  for (int i = 0; i < 5; i++) {
+    total += analogRead(SOIL_MOISTURE_PIN);
+    delay(10);
+  }
+  int raw = total / 5;
 
-  // Map ADC value to 0-100% (inverted: dry = high ADC)
+  // Map ADC value to 0-100% (inverted: dry = high ADC, wet = low ADC)
   float moisture = map(raw, SOIL_DRY_VALUE, SOIL_WET_VALUE, 0, 100);
   moisture = constrain(moisture, 0.0, 100.0);
+
+  debugPrint("   [DEBUG] Soil raw ADC: " + String(raw) + " → " + String(moisture, 1) + "%");
 
   return moisture;
 }
@@ -133,21 +162,10 @@ float readHumidity() {
 }
 
 bool readRainSensor() {
-  // Most rain sensors: LOW = rain detected, HIGH = no rain
+  // Most rain sensor modules:
+  // D0 output = LOW  when rain is detected (wet)
+  // D0 output = HIGH when dry (no rain)
   return digitalRead(RAIN_SENSOR_PIN) == LOW;
-}
-
-float readPH() {
-  int raw = analogRead(PH_SENSOR_PIN);
-
-  // Convert ADC to voltage
-  float voltage = (raw / (float)PH_ADC_RESOLUTION) * PH_REFERENCE_VOLTAGE;
-
-  // Convert voltage to pH (linear calibration)
-  float ph = 7.0 + ((2.5 - voltage) / (PH_REFERENCE_VOLTAGE / 14.0)) + PH_OFFSET;
-  ph = constrain(ph, 0.0, 14.0);
-
-  return ph;
 }
 
 // ============================================
@@ -156,6 +174,8 @@ float readPH() {
 
 void connectWiFi() {
   debugPrint("📡 Connecting to WiFi: " + String(WIFI_SSID));
+
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   unsigned long start = millis();
@@ -169,10 +189,11 @@ void connectWiFi() {
   }
 
   debugPrint("\n✅ WiFi connected!");
-  debugPrint("   IP: " + WiFi.localIP().toString());
+  debugPrint("   IP:   " + WiFi.localIP().toString());
+  debugPrint("   RSSI: " + String(WiFi.RSSI()) + " dBm");
 }
 
-String sendToBackend(float moisture, float temp, float hum, bool rain, float ph) {
+String sendToBackend(float moisture, float temp, float hum, bool rain) {
   if (WiFi.status() != WL_CONNECTED) {
     debugPrint("❌ WiFi not connected. Using fallback.");
     backendReachable = false;
@@ -180,18 +201,17 @@ String sendToBackend(float moisture, float temp, float hum, bool rain, float ph)
   }
 
   HTTPClient http;
-  http.begin(SERVER_URL);
+  http.begin(wifiClient, SERVER_URL);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(HTTP_TIMEOUT);
 
   // Build JSON payload
   JsonDocument doc;
-  doc["deviceId"]      = DEVICE_ID;
+  doc["deviceId"]       = DEVICE_ID;
   doc["soil_moisture"]  = round(moisture * 10) / 10.0;
   doc["temperature"]    = round(temp * 10) / 10.0;
   doc["humidity"]       = round(hum * 10) / 10.0;
   doc["rain_status"]    = rain;
-  doc["ph_level"]       = round(ph * 10) / 10.0;
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
@@ -206,6 +226,7 @@ String sendToBackend(float moisture, float temp, float hum, bool rain, float ph)
     debugPrint("📥 Response (" + String(httpCode) + "): " + response);
 
     backendReachable = true;
+    failedAttempts = 0;
 
     // Parse pump command from response
     JsonDocument resDoc;
@@ -217,7 +238,8 @@ String sendToBackend(float moisture, float temp, float hum, bool rain, float ph)
       return pump;
     }
   } else {
-    debugPrint("❌ HTTP Error: " + String(httpCode));
+    failedAttempts++;
+    debugPrint("❌ HTTP Error: " + String(httpCode) + " (attempt " + String(failedAttempts) + ")");
     backendReachable = false;
   }
 
@@ -230,6 +252,9 @@ String sendToBackend(float moisture, float temp, float hum, bool rain, float ph)
 // ============================================
 
 void activatePump(bool on) {
+  if (pumpState != on) {
+    debugPrint(on ? "💧 PUMP → ON" : "🛑 PUMP → OFF");
+  }
   pumpState = on;
   digitalWrite(PUMP_PIN, on ? PUMP_ON : PUMP_OFF);
 }
@@ -241,13 +266,17 @@ void activatePump(bool on) {
 void localFallbackLogic(float moisture, float temp, bool rain) {
   debugPrint("🔄 Running local fallback logic...");
 
+  // Rule 1: Pump ON if moisture is low AND temp is high AND no rain
   if (moisture < FALLBACK_MOISTURE_LOW && temp > FALLBACK_TEMP_HIGH && !rain) {
     activatePump(true);
     debugPrint("🤖 LOCAL: Pump ON (moisture low, temp high, no rain)");
-  } else if (moisture >= FALLBACK_MOISTURE_HIGH) {
+  }
+  // Rule 2: Pump OFF if moisture is sufficient
+  else if (moisture >= FALLBACK_MOISTURE_HIGH) {
     activatePump(false);
     debugPrint("🤖 LOCAL: Pump OFF (moisture sufficient)");
   }
+  // Otherwise: keep current pump state
 }
 
 // ============================================

@@ -33,9 +33,9 @@ const sensorReadingSchema = new mongoose.Schema(
         },
         ph_level: {
             type: Number,
-            required: [true, "pH level is required"],
             min: [0, "pH level cannot be negative"],
             max: [14, "pH level cannot exceed 14"],
+            default: 7.0,
         },
         pump_status: {
             type: String,

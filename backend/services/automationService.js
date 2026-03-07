@@ -6,7 +6,6 @@ const AlertLog = require("../models/AlertLog");
 const MOISTURE_LOW = Number(process.env.MOISTURE_THRESHOLD_LOW) || 30;
 const MOISTURE_HIGH = Number(process.env.MOISTURE_THRESHOLD_HIGH) || 40;
 const TEMP_THRESHOLD = Number(process.env.TEMPERATURE_THRESHOLD) || 30;
-const PH_ALERT = Number(process.env.PH_ALERT_THRESHOLD) || 6;
 
 /**
  * Evaluates automation rules based on sensor data.
@@ -17,8 +16,8 @@ const PH_ALERT = Number(process.env.PH_ALERT_THRESHOLD) || 6;
  * RULE 2 — PUMP OFF:
  *   moisture >= 40
  *
- * RULE 3 — pH ALERT:
- *   ph_level < 6 → generate PH_ALERT
+ * RULE 3 — LOW MOISTURE ALERT:
+ *   moisture < 30 → generate LOW_MOISTURE alert
  *
  * @param {Object} sensorData - The incoming sensor reading
  * @param {String} deviceObjectId - The MongoDB ObjectId of the device
@@ -28,7 +27,7 @@ const evaluateAutomation = async (sensorData, deviceObjectId) => {
     let pumpCommand = "OFF";
     let automationTriggered = false;
 
-    const { soil_moisture, temperature, rain_status, ph_level } = sensorData;
+    const { soil_moisture, temperature, rain_status } = sensorData;
 
     // ------------------------------------------
     // RULE 1: Turn pump ON
@@ -59,27 +58,7 @@ const evaluateAutomation = async (sensorData, deviceObjectId) => {
     }
 
     // ------------------------------------------
-    // RULE 3: pH Alert
-    // ------------------------------------------
-    if (ph_level < PH_ALERT) {
-        try {
-            await AlertLog.create({
-                deviceId: deviceObjectId,
-                type: "PH_ALERT",
-                message: `⚠️ pH level critically low: ${ph_level} (threshold: ${PH_ALERT}). Possible acidic soil/water condition.`,
-                severity: ph_level < 4 ? "CRITICAL" : "HIGH",
-            });
-
-            console.log(
-                `🚨 ALERT: pH level ${ph_level} < ${PH_ALERT} → PH_ALERT created`
-            );
-        } catch (err) {
-            console.error(`❌ Failed to create pH alert: ${err.message}`);
-        }
-    }
-
-    // ------------------------------------------
-    // RULE 4: Low Moisture Alert (independent of pump)
+    // RULE 3: Low Moisture Alert (independent of pump)
     // ------------------------------------------
     if (soil_moisture < MOISTURE_LOW) {
         try {
