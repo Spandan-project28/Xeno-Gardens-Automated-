@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppContext } from "../context/AppContext";
+import { colors, spacing, borderRadius, typography, cardStyle } from "../theme/theme";
 
 const SettingsScreen = () => {
     const { thresholds, setThresholds, deviceId, setDeviceId } = useAppContext();
@@ -20,7 +21,6 @@ const SettingsScreen = () => {
         moistureLow: String(thresholds.moistureLow),
         moistureHigh: String(thresholds.moistureHigh),
         temperatureHigh: String(thresholds.temperatureHigh),
-        phAlert: String(thresholds.phAlert),
     });
     const [localDeviceId, setLocalDeviceId] = useState(deviceId);
 
@@ -29,7 +29,6 @@ const SettingsScreen = () => {
             moistureLow: parseFloat(localThresholds.moistureLow),
             moistureHigh: parseFloat(localThresholds.moistureHigh),
             temperatureHigh: parseFloat(localThresholds.temperatureHigh),
-            phAlert: parseFloat(localThresholds.phAlert),
         };
 
         // Validate
@@ -59,7 +58,9 @@ const SettingsScreen = () => {
     const renderInput = (label, value, key, icon, unit) => (
         <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
-                <Ionicons name={icon} size={18} color="#4FC3F7" />
+                <View style={styles.labelIconCircle}>
+                    <Ionicons name={icon} size={14} color={colors.accent} />
+                </View>
                 <Text style={styles.label}>{label}</Text>
                 {unit && <Text style={styles.unit}>({unit})</Text>}
             </View>
@@ -70,7 +71,7 @@ const SettingsScreen = () => {
                     setLocalThresholds((prev) => ({ ...prev, [key]: text }))
                 }
                 keyboardType="numeric"
-                placeholderTextColor="#555"
+                placeholderTextColor={colors.textMuted}
                 placeholder="Enter value"
             />
         </View>
@@ -83,28 +84,40 @@ const SettingsScreen = () => {
         >
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
-                <Text style={styles.title}>⚙️ Settings</Text>
+                <Text style={styles.headerLabel}>Configuration</Text>
+                <Text style={styles.title}>Settings</Text>
+
+                {/* Divider */}
+                <View style={styles.divider} />
 
                 {/* Device Config */}
-                <Text style={styles.sectionTitle}>Device</Text>
+                <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionDot, { backgroundColor: colors.accent }]} />
+                    <Text style={styles.sectionTitle}>Device</Text>
+                </View>
                 <View style={styles.card}>
                     <View style={styles.inputGroup}>
                         <View style={styles.labelRow}>
-                            <Ionicons name="hardware-chip" size={18} color="#4FC3F7" />
+                            <View style={styles.labelIconCircle}>
+                                <Ionicons name="hardware-chip" size={14} color={colors.accent} />
+                            </View>
                             <Text style={styles.label}>Device ID</Text>
                         </View>
                         <TextInput
                             style={styles.input}
                             value={localDeviceId}
                             onChangeText={setLocalDeviceId}
-                            placeholderTextColor="#555"
+                            placeholderTextColor={colors.textMuted}
                             placeholder="e.g., esp32-field-01"
                         />
                     </View>
                 </View>
 
                 {/* Threshold Config */}
-                <Text style={styles.sectionTitle}>Automation Thresholds</Text>
+                <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionDot, { backgroundColor: colors.emerald }]} />
+                    <Text style={styles.sectionTitle}>Automation Thresholds</Text>
+                </View>
                 <View style={styles.card}>
                     {renderInput(
                         "Moisture Low (Pump ON)",
@@ -127,18 +140,13 @@ const SettingsScreen = () => {
                         "thermometer",
                         "°C"
                     )}
-                    {renderInput(
-                        "pH Alert Threshold",
-                        localThresholds.phAlert,
-                        "phAlert",
-                        "flask",
-                        "pH"
-                    )}
                 </View>
 
                 {/* Info Box */}
                 <View style={styles.infoBox}>
-                    <Ionicons name="information-circle" size={18} color="#4FC3F7" />
+                    <View style={styles.infoIconCircle}>
+                        <Ionicons name="information-circle" size={16} color={colors.accent} />
+                    </View>
                     <Text style={styles.infoText}>
                         Pump turns ON when moisture {"<"} low threshold AND temp {">"} high
                         threshold AND no rain. Pump turns OFF when moisture {"≥"} high
@@ -152,9 +160,12 @@ const SettingsScreen = () => {
                     onPress={handleSave}
                     activeOpacity={0.8}
                 >
-                    <Ionicons name="save" size={20} color="#FFF" />
+                    <Ionicons name="checkmark-circle" size={20} color="#FFF" />
                     <Text style={styles.saveText}>Save Settings</Text>
                 </TouchableOpacity>
+
+                {/* Bottom spacer */}
+                <View style={{ height: spacing.xxxl }} />
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -163,93 +174,128 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#12121F",
+        backgroundColor: colors.background,
     },
     scrollContent: {
-        padding: 16,
-        paddingTop: 50,
-        paddingBottom: 40,
+        padding: spacing.lg,
+        paddingTop: 54,
     },
-    title: {
-        color: "#FFF",
-        fontSize: 28,
-        fontWeight: "800",
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        color: "#8E8EA0",
+    headerLabel: {
+        color: colors.accent,
         fontSize: 13,
         fontWeight: "700",
+        letterSpacing: 1.5,
         textTransform: "uppercase",
-        letterSpacing: 1,
-        marginBottom: 10,
-        marginTop: 8,
+        marginBottom: 4,
+    },
+    title: {
+        color: colors.textPrimary,
+        ...typography.hero,
+        marginBottom: spacing.lg,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.divider,
+        marginBottom: spacing.xxl,
+    },
+    sectionHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: spacing.md,
+        marginTop: spacing.sm,
+    },
+    sectionDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginRight: spacing.sm,
+    },
+    sectionTitle: {
+        color: colors.textSecondary,
+        ...typography.caption,
     },
     card: {
-        backgroundColor: "#1E1E2E",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: "#2A2A3E",
+        ...cardStyle,
+        padding: spacing.lg,
+        marginBottom: spacing.lg,
     },
     inputGroup: {
-        marginBottom: 16,
+        marginBottom: spacing.lg,
     },
     labelRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 8,
+        marginBottom: spacing.sm,
+    },
+    labelIconCircle: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: "rgba(108,99,255,0.1)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     label: {
-        color: "#CCC",
+        color: colors.textPrimary,
         fontSize: 14,
         fontWeight: "600",
-        marginLeft: 8,
+        marginLeft: spacing.sm,
+        opacity: 0.85,
     },
     unit: {
-        color: "#8E8EA0",
+        color: colors.textSecondary,
         fontSize: 12,
-        marginLeft: 6,
+        marginLeft: spacing.xs,
     },
     input: {
-        backgroundColor: "#12121F",
-        borderColor: "#2A2A3E",
+        backgroundColor: colors.inputBackground,
+        borderColor: colors.inputBorder,
         borderWidth: 1,
-        borderRadius: 10,
-        padding: 12,
-        color: "#FFF",
-        fontSize: 16,
+        borderRadius: borderRadius.sm,
+        padding: spacing.md,
+        color: colors.textPrimary,
+        fontSize: 15,
+        fontWeight: "500",
     },
     infoBox: {
         flexDirection: "row",
-        backgroundColor: "#4FC3F710",
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 20,
+        backgroundColor: "rgba(108,99,255,0.06)",
+        borderRadius: borderRadius.md,
+        padding: spacing.lg,
+        marginBottom: spacing.xl,
         alignItems: "flex-start",
+        borderWidth: 1,
+        borderColor: "rgba(108,99,255,0.1)",
+    },
+    infoIconCircle: {
+        marginTop: 2,
     },
     infoText: {
-        color: "#8E8EA0",
+        color: colors.textSecondary,
         fontSize: 13,
         lineHeight: 20,
-        marginLeft: 10,
+        marginLeft: spacing.md,
         flex: 1,
     },
     saveButton: {
-        backgroundColor: "#4CAF50",
+        backgroundColor: colors.emerald,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 16,
-        borderRadius: 14,
-        elevation: 4,
+        paddingVertical: spacing.lg,
+        borderRadius: borderRadius.md,
+        shadowColor: colors.emerald,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 6,
     },
     saveText: {
         color: "#FFF",
         fontSize: 16,
         fontWeight: "700",
-        marginLeft: 8,
+        marginLeft: spacing.sm,
+        letterSpacing: 0.3,
     },
 });
 

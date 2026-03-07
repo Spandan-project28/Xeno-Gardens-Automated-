@@ -12,6 +12,7 @@ import { useAppContext } from "../context/AppContext";
 import SensorCard from "../components/SensorCard";
 import PumpToggle from "../components/PumpToggle";
 import config from "../config/api";
+import { colors, spacing, borderRadius, typography, shadows } from "../theme/theme";
 
 const DashboardScreen = () => {
     const { sensorData, refreshSensorData, togglePump, error } = useAppContext();
@@ -40,8 +41,11 @@ const DashboardScreen = () => {
     if (initialLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4FC3F7" />
+                <View style={styles.loadingGlow}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                </View>
                 <Text style={styles.loadingText}>Connecting to sensors...</Text>
+                <Text style={styles.loadingSubtext}>Establishing secure link</Text>
             </View>
         );
     }
@@ -50,7 +54,7 @@ const DashboardScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#12121F" />
+            <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -58,73 +62,93 @@ const DashboardScreen = () => {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor="#4FC3F7"
-                        colors={["#4FC3F7"]}
+                        tintColor={colors.accent}
+                        colors={[colors.accent]}
                     />
                 }
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>🌱 Dashboard</Text>
-                    <View style={styles.statusDot}>
+                    <View>
+                        <Text style={styles.greeting}>Xeno Garden</Text>
+                        <Text style={styles.title}>Dashboard</Text>
+                    </View>
+                    <View style={styles.statusChip}>
                         <View
                             style={[
                                 styles.dot,
-                                { backgroundColor: data ? "#4CAF50" : "#F44336" },
+                                {
+                                    backgroundColor: data ? colors.online : colors.offline,
+                                    shadowColor: data ? colors.online : colors.offline,
+                                },
                             ]}
                         />
-                        <Text style={styles.statusText}>
+                        <Text
+                            style={[
+                                styles.statusText,
+                                { color: data ? colors.online : colors.offline },
+                            ]}
+                        >
                             {data ? "Live" : "Offline"}
                         </Text>
                     </View>
                 </View>
 
+                {/* Decorative divider */}
+                <View style={styles.divider} />
+
                 {/* Error Banner */}
                 {error && (
                     <View style={styles.errorBanner}>
-                        <Text style={styles.errorText}>⚠️ {error}</Text>
+                        <View style={styles.errorIconCircle}>
+                            <Text style={styles.errorIcon}>⚠️</Text>
+                        </View>
+                        <Text style={styles.errorText}>{error}</Text>
                     </View>
                 )}
 
-                {/* Sensor Cards Grid */}
-                <View style={styles.grid}>
-                    <SensorCard
-                        label="Soil Moisture"
-                        value={data?.soil_moisture?.toFixed(1)}
-                        unit="%"
-                        type="soil_moisture"
-                    />
-                    <SensorCard
-                        label="Temperature"
-                        value={data?.temperature?.toFixed(1)}
-                        unit="°C"
-                        type="temperature"
-                    />
-                    <SensorCard
-                        label="Humidity"
-                        value={data?.humidity?.toFixed(1)}
-                        unit="%"
-                        type="humidity"
-                    />
-                    <SensorCard
-                        label="Rain"
-                        value={data?.rain_status}
-                        type="rain_status"
-                    />
-                    <SensorCard
-                        label="pH Level"
-                        value={data?.ph_level?.toFixed(1)}
-                        type="ph_level"
-                    />
-                    <SensorCard
-                        label="Pump"
-                        value={data?.pump_status || "OFF"}
-                        type="pump_status"
-                    />
+                {/* Section Header */}
+                <View style={styles.sectionHeader}>
+                    <View style={styles.sectionDot} />
+                    <Text style={styles.sectionTitle}>Sensor Readings</Text>
                 </View>
 
-                {/* Pump Control */}
-                <Text style={styles.sectionTitle}>Pump Control</Text>
+                {/* Sensor Cards Grid — 2×2 */}
+                <View style={styles.grid}>
+                    <View style={styles.gridRow}>
+                        <SensorCard
+                            label="Soil Moisture"
+                            value={data?.soil_moisture?.toFixed(1)}
+                            unit="%"
+                            type="soil_moisture"
+                        />
+                        <SensorCard
+                            label="Temperature"
+                            value={data?.temperature?.toFixed(1)}
+                            unit="°C"
+                            type="temperature"
+                        />
+                    </View>
+                    <View style={styles.gridRow}>
+                        <SensorCard
+                            label="Humidity"
+                            value={data?.humidity?.toFixed(1)}
+                            unit="%"
+                            type="humidity"
+                        />
+                        <SensorCard
+                            label="Rain"
+                            value={data?.rain_status}
+                            type="rain_status"
+                        />
+                    </View>
+                </View>
+
+                {/* Pump Control Section */}
+                <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionDot, { backgroundColor: colors.emerald }]} />
+                    <Text style={styles.sectionTitle}>Pump Control</Text>
+                </View>
                 <PumpToggle
                     pumpStatus={data?.pump_status || "OFF"}
                     onToggle={togglePump}
@@ -132,9 +156,12 @@ const DashboardScreen = () => {
 
                 {/* Last Updated */}
                 {data?.createdAt && (
-                    <Text style={styles.lastUpdated}>
-                        Last updated: {new Date(data.createdAt).toLocaleTimeString()}
-                    </Text>
+                    <View style={styles.lastUpdatedRow}>
+                        <View style={styles.lastUpdatedDot} />
+                        <Text style={styles.lastUpdated}>
+                            Last updated: {new Date(data.createdAt).toLocaleTimeString()}
+                        </Text>
+                    </View>
                 )}
             </ScrollView>
         </View>
@@ -144,81 +171,152 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#12121F",
+        backgroundColor: colors.background,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#12121F",
+        backgroundColor: colors.background,
+    },
+    loadingGlow: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "rgba(108,99,255,0.08)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: spacing.lg,
     },
     loadingText: {
-        color: "#8E8EA0",
+        color: colors.textPrimary,
         fontSize: 16,
-        marginTop: 12,
+        fontWeight: "600",
+        marginTop: spacing.sm,
+    },
+    loadingSubtext: {
+        color: colors.textMuted,
+        fontSize: 13,
+        marginTop: spacing.xs,
     },
     scrollContent: {
-        padding: 16,
-        paddingTop: 50,
+        padding: spacing.lg,
+        paddingTop: 54,
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 24,
+        alignItems: "flex-start",
+        marginBottom: spacing.lg,
+    },
+    greeting: {
+        color: colors.accent,
+        fontSize: 13,
+        fontWeight: "700",
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        marginBottom: 4,
     },
     title: {
-        color: "#FFF",
-        fontSize: 28,
-        fontWeight: "800",
+        color: colors.textPrimary,
+        ...typography.hero,
     },
-    statusDot: {
+    statusChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: colors.surface,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.round,
+        borderWidth: 1,
+        borderColor: colors.surfaceBorder,
+        marginTop: spacing.sm,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: spacing.sm,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: "700",
+        letterSpacing: 0.5,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.divider,
+        marginBottom: spacing.xxl,
+    },
+    errorBanner: {
+        backgroundColor: "rgba(255,107,107,0.08)",
+        borderColor: "rgba(255,107,107,0.18)",
+        borderWidth: 1,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginBottom: spacing.lg,
         flexDirection: "row",
         alignItems: "center",
     },
-    dot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        marginRight: 6,
+    errorIconCircle: {
+        marginRight: spacing.sm,
     },
-    statusText: {
-        color: "#8E8EA0",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    errorBanner: {
-        backgroundColor: "#F4433620",
-        borderColor: "#F4433640",
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 16,
+    errorIcon: {
+        fontSize: 16,
     },
     errorText: {
-        color: "#F44336",
-        fontSize: 14,
+        color: colors.coral,
+        fontSize: 13,
+        flex: 1,
+        fontWeight: "500",
     },
-    grid: {
+    sectionHeader: {
         flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: spacing.sm,
+        marginBottom: spacing.lg,
+    },
+    sectionDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.accent,
+        marginRight: spacing.sm,
     },
     sectionTitle: {
-        color: "#8E8EA0",
-        fontSize: 14,
-        fontWeight: "700",
-        textTransform: "uppercase",
-        letterSpacing: 1,
-        marginTop: 10,
-        marginBottom: 12,
+        color: colors.textSecondary,
+        ...typography.caption,
+    },
+    grid: {
+        marginBottom: spacing.sm,
+    },
+    gridRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: spacing.md,
+    },
+    lastUpdatedRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: spacing.lg,
+        marginBottom: spacing.xxxl,
+    },
+    lastUpdatedDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: colors.textMuted,
+        marginRight: spacing.sm,
     },
     lastUpdated: {
-        color: "#555",
-        fontSize: 12,
-        textAlign: "center",
-        marginTop: 16,
-        marginBottom: 30,
+        color: colors.textMuted,
+        fontSize: 11,
+        fontWeight: "500",
     },
 });
 

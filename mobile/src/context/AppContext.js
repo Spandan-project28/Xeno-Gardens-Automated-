@@ -30,7 +30,6 @@ export const AppProvider = ({ children }) => {
         moistureLow: 30,
         moistureHigh: 40,
         temperatureHigh: 30,
-        phAlert: 6,
     });
 
     // ---- Fetch Latest Sensor Data ----

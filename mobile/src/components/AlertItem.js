@@ -1,25 +1,29 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius, typography } from "../theme/theme";
 
 const ALERT_CONFIG = {
     PH_ALERT: {
         icon: "warning",
-        color: "#F44336",
-        bgColor: "#F4433615",
-        borderColor: "#F4433640",
+        color: colors.coral,
+        bgColor: "rgba(255,107,107,0.08)",
+        borderColor: "rgba(255,107,107,0.18)",
+        accentColor: colors.coral,
     },
     LOW_MOISTURE: {
         icon: "water-outline",
-        color: "#FF9800",
-        bgColor: "#FF980015",
-        borderColor: "#FF980040",
+        color: colors.amber,
+        bgColor: "rgba(255,159,67,0.08)",
+        borderColor: "rgba(255,159,67,0.18)",
+        accentColor: colors.amber,
     },
     SYSTEM: {
         icon: "settings",
-        color: "#2196F3",
-        bgColor: "#2196F315",
-        borderColor: "#2196F340",
+        color: colors.accent,
+        bgColor: "rgba(108,99,255,0.08)",
+        borderColor: "rgba(108,99,255,0.18)",
+        accentColor: colors.accent,
     },
 };
 
@@ -29,33 +33,40 @@ const AlertItem = ({ alert }) => {
 
     return (
         <View style={[styles.container, { backgroundColor: config.bgColor, borderColor: config.borderColor }]}>
-            <View style={styles.header}>
-                <View style={styles.typeRow}>
-                    <Ionicons name={config.icon} size={20} color={config.color} />
-                    <Text style={[styles.type, { color: config.color }]}>
-                        {alert.type.replace("_", " ")}
-                    </Text>
-                </View>
-                {alert.severity && (
-                    <View style={[styles.severityBadge, { backgroundColor: config.color + "30" }]}>
-                        <Text style={[styles.severityText, { color: config.color }]}>
-                            {alert.severity}
+            {/* Left accent bar */}
+            <View style={[styles.accentBar, { backgroundColor: config.accentColor }]} />
+
+            <View style={styles.content}>
+                <View style={styles.header}>
+                    <View style={styles.typeRow}>
+                        <View style={[styles.iconCircle, { backgroundColor: config.accentColor + "18" }]}>
+                            <Ionicons name={config.icon} size={16} color={config.color} />
+                        </View>
+                        <Text style={[styles.type, { color: config.color }]}>
+                            {alert.type.replace("_", " ")}
                         </Text>
                     </View>
-                )}
-            </View>
+                    {alert.severity && (
+                        <View style={[styles.severityBadge, { backgroundColor: config.accentColor + "20" }]}>
+                            <Text style={[styles.severityText, { color: config.color }]}>
+                                {alert.severity}
+                            </Text>
+                        </View>
+                    )}
+                </View>
 
-            <Text style={styles.message}>{alert.message}</Text>
+                <Text style={styles.message}>{alert.message}</Text>
 
-            <View style={styles.footer}>
-                <Ionicons name="time-outline" size={14} color="#666" />
-                <Text style={styles.timestamp}>{timestamp}</Text>
-                {alert.isResolved && (
-                    <View style={styles.resolvedBadge}>
-                        <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                        <Text style={styles.resolvedText}>Resolved</Text>
-                    </View>
-                )}
+                <View style={styles.footer}>
+                    <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.timestamp}>{timestamp}</Text>
+                    {alert.isResolved && (
+                        <View style={styles.resolvedBadge}>
+                            <Ionicons name="checkmark-circle" size={13} color={colors.emerald} />
+                            <Text style={styles.resolvedText}>Resolved</Text>
+                        </View>
+                    )}
+                </View>
             </View>
         </View>
     );
@@ -63,61 +74,85 @@ const AlertItem = ({ alert }) => {
 
 const styles = StyleSheet.create({
     container: {
-        borderRadius: 14,
-        padding: 16,
-        marginBottom: 12,
+        borderRadius: borderRadius.lg,
+        marginBottom: spacing.md,
         borderWidth: 1,
+        flexDirection: "row",
+        overflow: "hidden",
+    },
+    accentBar: {
+        width: 3,
+        borderTopLeftRadius: borderRadius.lg,
+        borderBottomLeftRadius: borderRadius.lg,
+    },
+    content: {
+        flex: 1,
+        padding: spacing.lg,
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 10,
+        marginBottom: spacing.sm,
     },
     typeRow: {
         flexDirection: "row",
         alignItems: "center",
     },
+    iconCircle: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: "center",
+        alignItems: "center",
+    },
     type: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: "700",
-        marginLeft: 8,
+        marginLeft: spacing.sm,
         textTransform: "uppercase",
         letterSpacing: 0.5,
     },
     severityBadge: {
-        paddingHorizontal: 10,
+        paddingHorizontal: spacing.md,
         paddingVertical: 3,
-        borderRadius: 8,
+        borderRadius: borderRadius.round,
     },
     severityText: {
-        fontSize: 11,
-        fontWeight: "700",
+        fontSize: 10,
+        fontWeight: "800",
+        letterSpacing: 0.5,
     },
     message: {
-        color: "#CCC",
+        color: colors.textPrimary,
         fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 10,
+        lineHeight: 21,
+        marginBottom: spacing.md,
+        opacity: 0.85,
     },
     footer: {
         flexDirection: "row",
         alignItems: "center",
     },
     timestamp: {
-        color: "#666",
-        fontSize: 12,
-        marginLeft: 5,
+        color: colors.textMuted,
+        fontSize: 11,
+        marginLeft: 4,
+        fontWeight: "500",
     },
     resolvedBadge: {
         flexDirection: "row",
         alignItems: "center",
         marginLeft: "auto",
+        backgroundColor: "rgba(0,217,166,0.1)",
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 2,
+        borderRadius: borderRadius.round,
     },
     resolvedText: {
-        color: "#4CAF50",
-        fontSize: 12,
-        fontWeight: "600",
+        color: colors.emerald,
+        fontSize: 11,
+        fontWeight: "700",
         marginLeft: 4,
     },
 });
