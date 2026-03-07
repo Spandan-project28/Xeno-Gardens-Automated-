@@ -3,15 +3,13 @@
 // ============================================
 // Reads DHT11 (temp + humidity), soil moisture,
 // and rain sensor. Sends data to backend every
-// 30s via HTTP POST. Receives pump command from
-// backend. Controls relay. Serial Monitor shows
+// 10s via HTTP POST. Serial Monitor shows
 // ALL readings in real-time.
 //
-// Hardware Connections:
+// Hardware Connections (SENSORS ONLY, NO RELAY):
 //   DHT11 Signal    → GPIO 4
-//   Soil Moisture   → GPIO 36 (A0 / VP)
-//   Rain Sensor D0  → GPIO 12
-//   Relay IN        → GPIO 14
+//   Soil Moisture   → GPIO 34
+//   Rain Sensor D0  → GPIO 27
 //
 // All config is in config.h
 // ============================================
@@ -26,7 +24,6 @@
 DHT dht(DHT_PIN, DHT_TYPE);
 
 // ---- State ----
-bool pumpState = false;
 bool backendReachable = true;
 unsigned long lastSendTime = 0;
 int failedAttempts = 0;
@@ -42,7 +39,7 @@ void setup() {
   Serial.println();
   Serial.println("╔══════════════════════════════════════╗");
   Serial.println("║   🌱 XENO GARDEN — ESP32 Firmware   ║");
-  Serial.println("║   Smart Drip Irrigation System       ║");
+  Serial.println("║   Sensors Only (No Relay) v2         ║");
   Serial.println("╚══════════════════════════════════════╝");
   Serial.println();
 
@@ -51,21 +48,67 @@ void setup() {
   Serial.println("   DHT11 Signal  → GPIO " + String(DHT_PIN));
   Serial.println("   Soil Moisture → GPIO " + String(SOIL_MOISTURE_PIN));
   Serial.println("   Rain Sensor   → GPIO " + String(RAIN_SENSOR_PIN));
-  Serial.println("   Relay/Pump    → GPIO " + String(PUMP_PIN));
   Serial.println();
 
   // Pin modes
-  pinMode(PUMP_PIN, OUTPUT);
-  pinMode(RAIN_SENSOR_PIN, INPUT);
-  // Analog pins don't need pinMode on ESP32
+  pinMode(RAIN_SENSOR_PIN, INPUT_PULLUP);
 
-  // Start with pump OFF
-  digitalWrite(PUMP_PIN, PUMP_OFF);
-  Serial.println("🔌 Pump initialized: OFF");
+  // Set ADC attenuation for full 0-3.3V range on ALL ADC pins
+  analogSetAttenuation(ADC_11db);
 
   // Initialize DHT sensor
   dht.begin();
-  Serial.println("🌡️  DHT11 initialized on GPIO " + String(DHT_PIN));
+  Serial.println("🌡️  DHT11 initialized");
+
+  // ---- PIN SCANNER: Find your sensors! ----
+  delay(2000);
+  Serial.println();
+  Serial.println("╔══════════════════════════════════════╗");
+  Serial.println("║   🔍 PIN SCANNER — Finding Sensors   ║");
+  Serial.println("╚══════════════════════════════════════╝");
+  Serial.println();
+
+  // Scan ALL ADC-capable pins to find the soil moisture sensor
+  Serial.println("📡 ANALOG SCAN (looking for soil moisture):");
+  Serial.println("   If your sensor is connected, ONE pin should show a value > 0");
+  Serial.println();
+
+  int adcPins[] = {32, 33, 34, 35, 36, 39};
+  String adcNames[] = {"GPIO32", "GPIO33", "GPIO34 (A6)", "GPIO35 (A7)", "GPIO36 (A0/SVP)", "GPIO39 (A3/SVN)"};
+  for (int i = 0; i < 6; i++) {
+    int val = analogRead(adcPins[i]);
+    String status = "";
+    if (val > 100) status = " ✅ SENSOR DETECTED!";
+    else if (val == 0) status = " ❌ nothing";
+    else status = " ⚠️ weak signal";
+    Serial.println("   " + adcNames[i] + " = " + String(val) + status);
+  }
+
+  // Scan digital pins for rain sensor
+  Serial.println();
+  Serial.println("📡 DIGITAL SCAN (looking for rain sensor):");
+  Serial.println("   Rain sensor D0 should read 1 (HIGH) when DRY");
+  Serial.println();
+
+  int digiPins[] = {2, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27};
+  for (int i = 0; i < 17; i++) {
+    if (digiPins[i] == DHT_PIN) continue;  // Skip DHT pin
+    pinMode(digiPins[i], INPUT_PULLUP);
+    delay(10);
+    int val = digitalRead(digiPins[i]);
+    Serial.println("   GPIO" + String(digiPins[i]) + " = " + String(val) + (val == HIGH ? " (HIGH/dry)" : " (LOW/rain)"));
+  }
+
+  Serial.println();
+  Serial.println("════════════════════════════════════════");
+  Serial.println("👆 Look at the scan results above!");
+  Serial.println("   Find which pin shows your soil moisture reading (value > 0)");
+  Serial.println("   Find which pin shows your rain sensor correctly");
+  Serial.println("════════════════════════════════════════");
+  Serial.println();
+
+  // Re-set rain pin after scan
+  pinMode(RAIN_SENSOR_PIN, INPUT_PULLUP);
 
   // Connect to WiFi
   connectWiFi();
@@ -117,25 +160,11 @@ void loop() {
     Serial.println("│  🌡️  Temperature   : " + String(temperature, 1) + " °C");
     Serial.println("│  💨 Humidity      : " + String(humidity, 1) + " %");
     Serial.println("│  🌧️  Rain          : " + String(rainDetected ? "YES ☔" : "NO  ☀️"));
-    Serial.println("│  🔌 Pump          : " + String(pumpState ? "ON 💧" : "OFF"));
     Serial.println("├──────────────────────────────────────┤");
 
-    // 4. Send to backend and get pump command
-    String pumpCommand = sendToBackend(
-      soilMoisture, temperature, humidity, rainDetected
-    );
+    // 4. Send to backend
+    sendToBackend(soilMoisture, temperature, humidity, rainDetected);
 
-    // 5. Control pump based on response
-    if (pumpCommand == "ON") {
-      activatePump(true);
-    } else if (pumpCommand == "OFF") {
-      activatePump(false);
-    } else if (pumpCommand == "FALLBACK") {
-      localFallbackLogic(soilMoisture, temperature, rainDetected);
-    }
-
-    Serial.println("│  🎯 Pump Command  : " + pumpCommand);
-    Serial.println("│  🔌 Pump State    : " + String(pumpState ? "ON 💧" : "OFF"));
     Serial.println("│  📡 Backend       : " + String(backendReachable ? "Connected ✅" : "Offline ❌"));
     Serial.println("│  📶 WiFi RSSI     : " + String(WiFi.RSSI()) + " dBm");
     Serial.println("└──────────────────────────────────────┘");
@@ -169,6 +198,13 @@ float readSoilMoisture() {
 float readTemperature() {
   float temp = dht.readTemperature();
   if (isnan(temp)) {
+    for(int i = 0; i < 3; i++) {
+      delay(500);
+      temp = dht.readTemperature();
+      if (!isnan(temp)) break;
+    }
+  }
+  if (isnan(temp)) {
     Serial.println("│  ⚠️  DHT temp read FAILED!");
     return -999.0;
   }
@@ -177,6 +213,13 @@ float readTemperature() {
 
 float readHumidity() {
   float hum = dht.readHumidity();
+  if (isnan(hum)) {
+    for(int i = 0; i < 3; i++) {
+      delay(500);
+      hum = dht.readHumidity();
+      if (!isnan(hum)) break;
+    }
+  }
   if (isnan(hum)) {
     Serial.println("│  ⚠️  DHT humidity read FAILED!");
     return -999.0;
@@ -218,11 +261,11 @@ void connectWiFi() {
   Serial.println("   📶 RSSI: " + String(WiFi.RSSI()) + " dBm");
 }
 
-String sendToBackend(float moisture, float temp, float hum, bool rain) {
+void sendToBackend(float moisture, float temp, float hum, bool rain) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("│  ❌ WiFi not connected → FALLBACK");
+    Serial.println("│  ❌ WiFi not connected — skipping send");
     backendReachable = false;
-    return "FALLBACK";
+    return;
   }
 
   HTTPClient http;
@@ -249,19 +292,8 @@ String sendToBackend(float moisture, float temp, float hum, bool rain) {
   if (httpCode > 0) {
     String response = http.getString();
     Serial.println("│  📥 Response (" + String(httpCode) + "): " + response);
-
     backendReachable = true;
     failedAttempts = 0;
-
-    // Parse pump command from response
-    JsonDocument resDoc;
-    DeserializationError error = deserializeJson(resDoc, response);
-
-    if (!error && resDoc.containsKey("pump")) {
-      String pump = resDoc["pump"].as<String>();
-      http.end();
-      return pump;
-    }
   } else {
     failedAttempts++;
     Serial.println("│  ❌ HTTP Error: " + String(httpCode) + " (attempt " + String(failedAttempts) + ")");
@@ -269,40 +301,4 @@ String sendToBackend(float moisture, float temp, float hum, bool rain) {
   }
 
   http.end();
-  return "FALLBACK";
-}
-
-// ============================================
-// PUMP CONTROL
-// ============================================
-
-void activatePump(bool on) {
-  if (pumpState != on) {
-    Serial.println("│  " + String(on ? "💧 PUMP → ON" : "🛑 PUMP → OFF"));
-  }
-  pumpState = on;
-  digitalWrite(PUMP_PIN, on ? PUMP_ON : PUMP_OFF);
-}
-
-// ============================================
-// LOCAL FALLBACK (when backend is unreachable)
-// ============================================
-
-void localFallbackLogic(float moisture, float temp, bool rain) {
-  Serial.println("│  🔄 Running LOCAL fallback logic...");
-
-  // Rule 1: Pump ON if dry + hot + no rain
-  if (moisture < FALLBACK_MOISTURE_LOW && temp > FALLBACK_TEMP_HIGH && !rain) {
-    activatePump(true);
-    Serial.println("│  🤖 LOCAL → Pump ON (dry + hot + no rain)");
-  }
-  // Rule 2: Pump OFF if wet enough
-  else if (moisture >= FALLBACK_MOISTURE_HIGH) {
-    activatePump(false);
-    Serial.println("│  🤖 LOCAL → Pump OFF (moisture sufficient)");
-  }
-  // Otherwise: keep current state
-  else {
-    Serial.println("│  🤖 LOCAL → No change (keeping pump " + String(pumpState ? "ON" : "OFF") + ")");
-  }
 }
