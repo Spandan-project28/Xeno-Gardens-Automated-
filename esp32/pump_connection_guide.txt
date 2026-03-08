@@ -1,0 +1,135 @@
+=====================================================
+   PUMP CONNECTION GUIDE - ESP32 + Relay Control
+          (Final Corrected Version)
+=====================================================
+
+PROBLEM:
+  Both the pump and ESP32 are powered from the charge
+  controller. How does the ESP32 control the pump?
+
+ANSWER:
+  The ESP32 does NOT power the pump. It sends a tiny
+  control signal to a RELAY MODULE, which acts as an
+  electrically controlled switch for the pump's own
+  power line.
+
+=====================================================
+   OVERALL SYSTEM LAYOUT
+=====================================================
+
+  Solar Panel --> Charge Controller --> Battery
+                         |
+               +---------+---------+
+               |                   |
+         Buck Converter       LOAD Terminal
+         (5V or 3.3V)       (direct 12V output)
+               |                   |
+             ESP32            Water Pump
+                              (through relay)
+
+  NOTE: The pump uses the LOAD terminal directly.
+        Only the ESP32 needs a buck converter.
+
+=====================================================
+   STEP 1: POWER THE ESP32
+=====================================================
+
+  Use a Buck Converter to step down battery voltage
+  to 3.3V or 5V for the ESP32.
+
+  Battery/Charge Controller ---> Buck Converter
+  Buck Converter OUT (+)    ---> ESP32 VIN / 5V pin
+  Buck Converter OUT (-)    ---> ESP32 GND
+
+=====================================================
+   STEP 2: CONNECT ESP32 TO RELAY MODULE
+=====================================================
+
+  The relay module has 3 small pins on one side:
+
+  Relay Pin     ESP32 Pin
+  ---------     ---------
+  VCC       --> 5V or 3.3V (match your relay module)
+  GND       --> GND
+  IN        --> Any GPIO pin (e.g., D5 / GPIO 5)
+
+=====================================================
+   STEP 3: CONNECT RELAY TO PUMP (via LOAD terminal)
+=====================================================
+
+  The relay module has 3 screw terminals:
+    - COM  (Common)
+    - NO   (Normally Open)   <-- USE THIS
+    - NC   (Normally Closed)
+
+  Wiring:
+    Charge Controller LOAD (+) ---> Relay COM terminal
+    Relay NO terminal          ---> Pump (+) wire
+    Charge Controller LOAD (-) ---> Pump (-) wire (direct)
+
+  WHY USE LOAD TERMINAL?
+    - It is designed for powering loads like pumps
+    - Has built-in low-voltage disconnect protection
+      (prevents battery from over-discharging)
+    - Charge controller monitors the load current
+    - No extra buck converter needed for 12V pump
+
+  WHY USE NO (Normally Open)?
+    - Pump stays OFF by default (safe)
+    - Pump only turns ON when ESP32 activates relay
+
+=====================================================
+   HOW IT WORKS
+=====================================================
+
+  1. ESP32 sends HIGH signal to relay GPIO pin
+     --> Relay closes the circuit
+     --> Pump TURNS ON
+
+  2. ESP32 sends LOW signal to relay GPIO pin
+     --> Relay opens the circuit
+     --> Pump TURNS OFF
+
+  The relay only needs a few milliamps from ESP32.
+  The pump draws its power from the LOAD terminal.
+  They are electrically isolated.
+
+=====================================================
+   IMPORTANT TIPS
+=====================================================
+
+  1. Use a relay module with OPTOCOUPLER (most common
+     blue SRD-05VDC modules have one). This protects
+     the ESP32 from voltage spikes.
+
+  2. If your pump draws MORE than 10A, use a MOSFET
+     module (like IRF520) instead of a basic relay.
+
+  3. Make sure your pump is rated for the same voltage
+     as your battery (usually 12V).
+
+  4. If using ESP8266 instead of ESP32, use pin D5 or
+     D6 for relay control. AVOID D0, D3, D4, D8 as
+     they can cause boot issues.
+
+  5. If your pump is NOT 12V (different from battery
+     voltage), THEN you need a buck converter for the
+     pump too. But for 12V pump + 12V battery, the
+     LOAD terminal is the simplest and safest option.
+
+=====================================================
+   QUICK SUMMARY
+=====================================================
+
+  Component     | Powered By              | Controlled By
+  ------------- | ----------------------- | ----------------
+  ESP32         | Buck Converter (3.3V)   | --
+  Pump          | LOAD terminal (12V)     | Relay module
+  Relay Module  | ESP32 (VCC + GND)       | ESP32 GPIO pin
+
+  Total connections:
+    - 2 wires: Buck converter to ESP32 (power)
+    - 3 wires: ESP32 to relay (VCC, GND, signal)
+    - 3 wires: LOAD terminal + relay to pump (power)
+
+=====================================================

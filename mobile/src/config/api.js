@@ -3,9 +3,9 @@
 // ============================================
 
 // Change this to your backend server IP/URL
-// For Expo on physical device: use your PC's local IP (e.g., 192.168.x.x)
+// For Expo on physical device: use your PC's local IP (e.g., 192.168.0.100)
 // For Expo on emulator: use localhost or 10.0.2.2 (Android emulator)
-const API_BASE_URL = "http://192.168.0.104:5000";
+const API_BASE_URL = "https://beige-taxis-ask.loca.lt";
 
 export default {
     BASE_URL: API_BASE_URL,
