@@ -49,9 +49,14 @@ ANSWER:
 
   Relay Pin     ESP32 Pin
   ---------     ---------
-  VCC       --> 5V or 3.3V (match your relay module)
+  VCC       --> 5V / VIN pin (Relay needs 5V to click)
   GND       --> GND
-  IN        --> Any GPIO pin (e.g., D5 / GPIO 5)
+  IN        --> Any GPIO pin 5
+
+  ⚠️ VOLTAGE NOTE: Even if your ESP32 is 3.3V, the relay
+     module usually needs 5V on VCC to operate the coil.
+     The ESP32's 3.3V signal on the IN pin is usually 
+     enough to trigger it.
 
 =====================================================
    STEP 3: CONNECT RELAY TO PUMP (via LOAD terminal)
@@ -67,7 +72,11 @@ ANSWER:
     Relay NO terminal          ---> Pump (+) wire
     Charge Controller LOAD (-) ---> Pump (-) wire (direct)
 
-  WHY USE LOAD TERMINAL?
+  TERMINAL GUIDE:
+    - COM (Common): The power goes IN here.
+    - NO (Normally Open): The power comes OUT when ESP says ON.
+    - NC (Normally Closed): LEAVE EMPTY. If used, the pump 
+      stays ON all the time and only turns OFF when ESP says ON.
     - It is designed for powering loads like pumps
     - Has built-in low-voltage disconnect protection
       (prevents battery from over-discharging)
