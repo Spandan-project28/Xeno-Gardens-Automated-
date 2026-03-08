@@ -18,6 +18,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
+#include <WiFiManager.h> // Required: Install "WiFiManager" by tablatronix
 #include "config.h"
 
 // ---- Initialize Sensors ----
@@ -28,6 +29,7 @@ bool backendReachable = true;
 unsigned long lastSendTime = 0;
 int failedAttempts = 0;
 int sendCount = 0;
+String pumpStatus = "OFF";
 
 // ============================================
 // SETUP
@@ -52,6 +54,8 @@ void setup() {
 
   // Pin modes
   pinMode(RAIN_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH); // Common rule: High = OFF for some relay modules (Normally Open)
 
   // Set ADC attenuation for full 0-3.3V range on ALL ADC pins
   analogSetAttenuation(ADC_11db);
@@ -90,9 +94,9 @@ void setup() {
   Serial.println("   Rain sensor D0 should read 1 (HIGH) when DRY");
   Serial.println();
 
-  int digiPins[] = {2, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27};
-  for (int i = 0; i < 17; i++) {
-    if (digiPins[i] == DHT_PIN) continue;  // Skip DHT pin
+  int digiPins[] = {2, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26}; // Only free pins
+  for (int i = 0; i < 14; i++) {
+    if (digiPins[i] == DHT_PIN || digiPins[i] == RELAY_PIN || digiPins[i] == RAIN_SENSOR_PIN) continue; 
     pinMode(digiPins[i], INPUT_PULLUP);
     delay(10);
     int val = digitalRead(digiPins[i]);
@@ -107,11 +111,22 @@ void setup() {
   Serial.println("════════════════════════════════════════");
   Serial.println();
 
-  // Re-set rain pin after scan
+  // Re-set critical pins after scan
   pinMode(RAIN_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH); // Keep it OFF after scan
 
-  // Connect to WiFi
-  connectWiFi();
+  // Connect to WiFi via WiFiManager
+  WiFiManager wm;
+  
+  Serial.println("🌐 Launching WiFi Portal...");
+  Serial.print("   SSID: "); Serial.println(AP_NAME);
+  
+  // If we can't connect, it creates a hotspot
+  if(!wm.autoConnect(AP_NAME, AP_PASSWORD)) {
+    Serial.println("❌ Failed to connect or timeout");
+    ESP.restart();
+  }
 
   Serial.println();
   Serial.println("✅ Setup complete!");
@@ -160,6 +175,7 @@ void loop() {
     Serial.println("│  🌡️  Temperature   : " + String(temperature, 1) + " °C");
     Serial.println("│  💨 Humidity      : " + String(humidity, 1) + " %");
     Serial.println("│  🌧️  Rain          : " + String(rainDetected ? "YES ☔" : "NO  ☀️"));
+    Serial.println("│  🚰 Pump Status   : " + pumpStatus);
     Serial.println("├──────────────────────────────────────┤");
 
     // 4. Send to backend
@@ -238,27 +254,12 @@ bool readRainSensor() {
 // NETWORK FUNCTIONS
 // ============================================
 
+// WiFi connection is now handled by WiFiManager in setup()
+// This function remains to check/reconnect if needed manually
 void connectWiFi() {
-  Serial.println("📡 Connecting to WiFi: " + String(WIFI_SSID));
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    if (millis() - start > WIFI_TIMEOUT) {
-      Serial.println("\n❌ WiFi connection TIMEOUT!");
-      Serial.println("   Check SSID/Password in config.h");
-      return;
-    }
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(); // Uses stored credentials
   }
-
-  Serial.println();
-  Serial.println("✅ WiFi connected!");
-  Serial.println("   📍 IP:   " + WiFi.localIP().toString());
-  Serial.println("   📶 RSSI: " + String(WiFi.RSSI()) + " dBm");
 }
 
 void sendToBackend(float moisture, float temp, float hum, bool rain) {
@@ -280,6 +281,7 @@ void sendToBackend(float moisture, float temp, float hum, bool rain) {
   doc["temperature"]    = round(temp * 10) / 10.0;
   doc["humidity"]       = round(hum * 10) / 10.0;
   doc["rain_status"]    = rain;
+  doc["pump_status"]    = pumpStatus;
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
@@ -292,6 +294,23 @@ void sendToBackend(float moisture, float temp, float hum, bool rain) {
   if (httpCode > 0) {
     String response = http.getString();
     Serial.println("│  📥 Response (" + String(httpCode) + "): " + response);
+    
+    // Parse response for pump commands
+    JsonDocument resDoc;
+    DeserializationError error = deserializeJson(resDoc, response);
+    if (!error) {
+      if (resDoc.containsKey("pump")) {
+        String command = resDoc["pump"];
+        if (command == "ON") {
+          digitalWrite(RELAY_PIN, LOW); // LOW = Triggered (Normally Open)
+          pumpStatus = "ON";
+        } else {
+          digitalWrite(RELAY_PIN, HIGH); // HIGH = OFF
+          pumpStatus = "OFF";
+        }
+      }
+    }
+
     backendReachable = true;
     failedAttempts = 0;
   } else {

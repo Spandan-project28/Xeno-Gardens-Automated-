@@ -8,10 +8,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// ---- WiFi Credentials ----
-// ⚠️ CHANGE THESE to your WiFi network
-#define WIFI_SSID       "T5-018"
-#define WIFI_PASSWORD   "t5018@123"
+// ---- WiFi Configuration ----
+// Now using WiFiManager — No need to hardcode SSID/Password
+#define AP_NAME         "Xeno-Garden-Setup"
+#define AP_PASSWORD     "admin123"
 
 // ---- Backend Server ----
 // ⚠️ CHANGE the IP to your PC's local IP (run 'ipconfig' in terminal)
@@ -40,6 +40,7 @@
 #define DHT_PIN             4    // GPIO4  → DHT11 Signal pin
 #define SOIL_MOISTURE_PIN   34   // GPIO34 → Soil Moisture analog output
 #define RAIN_SENSOR_PIN     27   // GPIO27 → Rain Sensor digital D0 output
+#define RELAY_PIN           5    // GPIO5  → Pump Relay control
 
 // ---- DHT Sensor Type ----
 #define DHT_TYPE            DHT11

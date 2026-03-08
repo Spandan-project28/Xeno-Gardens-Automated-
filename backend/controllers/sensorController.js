@@ -48,7 +48,7 @@ const submitSensorData = async (req, res, next) => {
         // -------------------------------------------
         const { pumpCommand, automationTriggered } = await evaluateAutomation(
             { soil_moisture, temperature, humidity, rain_status },
-            device._id
+            device
         );
 
         // -------------------------------------------

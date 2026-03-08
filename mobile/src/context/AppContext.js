@@ -24,6 +24,7 @@ export const AppProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [deviceId, setDeviceId] = useState("esp32-field-01");
+    const [connectionStatus, setConnectionStatus] = useState("connecting"); // connecting, online, offline
 
     // ---- Thresholds (configurable from Settings) ----
     const [thresholds, setThresholds] = useState({
@@ -35,12 +36,14 @@ export const AppProvider = ({ children }) => {
     // ---- Fetch Latest Sensor Data ----
     const refreshSensorData = useCallback(async () => {
         try {
-            setError(null);
             const result = await getLatestSensorData(deviceId);
             if (result.success) {
                 setSensorData(result.data);
+                setConnectionStatus("online");
+                setError(null);
             }
         } catch (err) {
+            setConnectionStatus("offline");
             setError(err.message || "Failed to fetch sensor data");
         }
     }, [deviceId]);
@@ -107,9 +110,11 @@ export const AppProvider = ({ children }) => {
         error,
         deviceId,
         thresholds,
+        connectionStatus,
         setDeviceId,
         setThresholds,
         setError,
+        setConnectionStatus,
         refreshSensorData,
         refreshHistory,
         refreshAlerts,

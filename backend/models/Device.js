@@ -22,6 +22,11 @@ const deviceSchema = new mongoose.Schema(
             type: Date,
             default: Date.now,
         },
+        pumpStatus: {
+            type: String,
+            enum: ["ON", "OFF"],
+            default: "OFF",
+        },
     },
     {
         timestamps: true, // adds createdAt, updatedAt

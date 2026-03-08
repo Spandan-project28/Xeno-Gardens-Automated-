@@ -28,6 +28,10 @@ const manualPumpControl = async (req, res, next) => {
             });
         }
 
+        // Update device persistent pump status
+        device.pumpStatus = action;
+        await device.save();
+
         // Get the latest reading to create a manual-override entry
         const latestReading = await SensorReading.findOne({ deviceId: device._id })
             .sort({ createdAt: -1 })

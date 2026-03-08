@@ -15,7 +15,7 @@ import config from "../config/api";
 import { colors, spacing, borderRadius, typography, shadows } from "../theme/theme";
 
 const DashboardScreen = () => {
-    const { sensorData, refreshSensorData, togglePump, error } = useAppContext();
+    const { sensorData, refreshSensorData, togglePump, error, connectionStatus } = useAppContext();
     const [refreshing, setRefreshing] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
 
@@ -38,14 +38,38 @@ const DashboardScreen = () => {
         setRefreshing(false);
     }, [refreshSensorData]);
 
-    if (initialLoading) {
+    if (initialLoading || connectionStatus === "connecting") {
         return (
             <View style={styles.loadingContainer}>
                 <View style={styles.loadingGlow}>
                     <ActivityIndicator size="large" color={colors.accent} />
                 </View>
-                <Text style={styles.loadingText}>Connecting to sensors...</Text>
-                <Text style={styles.loadingSubtext}>Establishing secure link</Text>
+                <Text style={styles.loadingText}>Connecting to Xeno Garden...</Text>
+                <Text style={styles.loadingSubtext}>Establishing secure link to backend</Text>
+            </View>
+        );
+    }
+
+    // Full-screen offline state if we have no data at all
+    if (!sensorData && connectionStatus === "offline") {
+        return (
+            <View style={styles.loadingContainer}>
+                <View style={[styles.loadingGlow, { backgroundColor: "rgba(255,107,107,0.1)" }]}>
+                    <Text style={{ fontSize: 32 }}>📡</Text>
+                </View>
+                <Text style={styles.loadingText}>Server Unreachable</Text>
+                <Text style={styles.loadingSubtext}>{error || "The Xeno Garden backend is offline"}</Text>
+                <View style={styles.retryButtonContainer}>
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        style={{ marginTop: spacing.xl }}
+                    >
+                        <View onTouchEnd={onRefresh} style={styles.retryButton}>
+                            <Text style={styles.retryButtonText}>TRY AGAIN</Text>
+                        </View>
+                    </RefreshControl>
+                </View>
             </View>
         );
     }
@@ -97,8 +121,8 @@ const DashboardScreen = () => {
                 {/* Decorative divider */}
                 <View style={styles.divider} />
 
-                {/* Error Banner */}
-                {error && (
+                {/* Error Banner — only show if we're actually disconnected */}
+                {error && connectionStatus === "offline" && (
                     <View style={styles.errorBanner}>
                         <View style={styles.errorIconCircle}>
                             <Text style={styles.errorIcon}>⚠️</Text>
@@ -317,6 +341,23 @@ const styles = StyleSheet.create({
         color: colors.textMuted,
         fontSize: 11,
         fontWeight: "500",
+    },
+    retryButtonContainer: {
+        marginTop: spacing.xl,
+        alignItems: "center",
+    },
+    retryButton: {
+        backgroundColor: colors.accent,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.md,
+        ...shadows.md,
+    },
+    retryButtonText: {
+        color: "#FFFFFF",
+        fontWeight: "700",
+        letterSpacing: 1,
+        fontSize: 12,
     },
 });
 
