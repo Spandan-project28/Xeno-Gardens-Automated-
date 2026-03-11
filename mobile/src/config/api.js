@@ -5,7 +5,7 @@
 // Change this to your backend server IP/URL
 // For Expo on physical device: use your PC's local IP (e.g., 192.168.0.100)
 // For Expo on emulator: use localhost or 10.0.2.2 (Android emulator)
-const API_BASE_URL = "http://192.168.0.103:5000";
+const API_BASE_URL = "http://192.168.0.102:5000";
 
 export default {
     BASE_URL: API_BASE_URL,

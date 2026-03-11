@@ -16,7 +16,7 @@
 // ---- Backend Server ----
 // ⚠️ CHANGE the IP to your PC's local IP (run 'ipconfig' in terminal)
 // The port must match your backend's PORT in .env (default 5000)
-#define SERVER_URL      "http://192.168.0.103:5000/api/sensor-data"
+#define SERVER_URL      "http://192.168.0.102:5000/api/sensor-data"
 #define DEVICE_ID       "esp32-field-01"
 
 // ---- Timing (milliseconds) ----
@@ -40,7 +40,7 @@
 #define DHT_PIN             4    // GPIO4  → DHT11 Signal pin
 #define SOIL_MOISTURE_PIN   34   // GPIO34 → Soil Moisture analog output
 #define RAIN_SENSOR_PIN     27   // GPIO27 → Rain Sensor digital D0 output
-#define RELAY_PIN           5    // GPIO5  → Pump Relay control
+#define RELAY_PIN           26   // GPIO26 → Pump Relay control
 
 // ---- DHT Sensor Type ----
 #define DHT_TYPE            DHT11

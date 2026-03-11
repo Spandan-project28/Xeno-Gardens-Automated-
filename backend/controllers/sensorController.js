@@ -110,9 +110,19 @@ const getLatestReading = async (req, res, next) => {
             });
         }
 
+        // Get the authoritative pump status from the Device model
+        // This prevents the ESP32's stale pump_status from overriding
+        // the user's manual command in the mobile app UI
+        const deviceDoc = deviceId
+            ? await Device.findOne({ deviceId })
+            : null;
+
         return res.status(200).json({
             success: true,
-            data: latest,
+            data: {
+                ...latest,
+                pump_status: deviceDoc?.pumpStatus ?? latest.pump_status,
+            },
         });
     } catch (error) {
         next(error);
