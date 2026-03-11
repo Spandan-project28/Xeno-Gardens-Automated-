@@ -11,25 +11,25 @@ const validateSensorData = [
         .trim(),
 
     body("soil_moisture")
-        .notEmpty()
+        .exists()
         .withMessage("soil_moisture is required")
         .isFloat({ min: 0, max: 100 })
         .withMessage("soil_moisture must be between 0 and 100"),
 
     body("temperature")
-        .notEmpty()
+        .exists()
         .withMessage("temperature is required")
         .isFloat({ min: -40, max: 80 })
         .withMessage("temperature must be between -40 and 80"),
 
     body("humidity")
-        .notEmpty()
+        .exists()
         .withMessage("humidity is required")
         .isFloat({ min: 0, max: 100 })
         .withMessage("humidity must be between 0 and 100"),
 
     body("rain_status")
-        .notEmpty()
+        .exists()
         .withMessage("rain_status is required")
         .isBoolean()
         .withMessage("rain_status must be a boolean"),

@@ -19,18 +19,19 @@ const manualPumpControl = async (req, res, next) => {
 
         const { deviceId, action } = req.body;
 
-        // Find the device
-        const device = await Device.findOne({ deviceId });
+        // Update pump status ATOMICALLY — prevents race condition with sensor updates
+        const device = await Device.findOneAndUpdate(
+            { deviceId },
+            { pumpStatus: action },
+            { new: true }
+        );
+
         if (!device) {
             return res.status(404).json({
                 success: false,
                 message: `Device '${deviceId}' not found`,
             });
         }
-
-        // Update device persistent pump status
-        device.pumpStatus = action;
-        await device.save();
 
         // Get the latest reading to create a manual-override entry
         const latestReading = await SensorReading.findOne({ deviceId: device._id })

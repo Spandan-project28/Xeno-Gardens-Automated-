@@ -26,22 +26,18 @@ const submitSensorData = async (req, res, next) => {
             rain_status,
         } = req.body;
 
-        // -------------------------------------------
-        // 1. Find or create the device
-        // -------------------------------------------
-        let device = await Device.findOne({ deviceId });
+        // 1. Find or create device, update lastSeen ATOMICALLY
+        // This is critical: prevents sensor updates from overwriting pumpStatus
+        let device = await Device.findOneAndUpdate(
+            { deviceId },
+            { lastSeen: new Date() },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
 
-        if (!device) {
-            device = await Device.create({
-                deviceId,
-                location: req.body.location || "Unspecified",
-            });
-            console.log(`📱 New device registered: ${deviceId}`);
+        if (!device.location) {
+            device.location = req.body.location || "Unspecified";
+            await device.save();
         }
-
-        // Update last seen
-        device.lastSeen = new Date();
-        await device.save();
 
         // -------------------------------------------
         // 2. Run automation logic BEFORE storing
