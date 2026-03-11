@@ -20,9 +20,10 @@
 #define DEVICE_ID       "esp32-field-01"
 
 // ---- Timing (milliseconds) ----
-#define SEND_INTERVAL   1000     // Send data every 1 second
-#define WIFI_TIMEOUT    15000    // WiFi connection timeout
-#define HTTP_TIMEOUT    10000    // HTTP request timeout
+#define SEND_INTERVAL       1000     // Send data every 1 second
+#define PUMP_CHECK_INTERVAL 300      // Check pump commands every 300ms
+#define WIFI_TIMEOUT        15000    // WiFi connection timeout
+#define HTTP_TIMEOUT        10000    // HTTP request timeout
 
 // ============================================
 // SENSOR PIN CONNECTIONS (NO RELAY)

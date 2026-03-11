@@ -27,6 +27,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 // ---- State ----
 bool backendReachable = true;
 unsigned long lastSendTime = 0;
+unsigned long lastPumpCheck = 0;
 int failedAttempts = 0;
 int sendCount = 0;
 String pumpStatus = "OFF";
@@ -148,6 +149,12 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️  WiFi lost! Reconnecting...");
     connectWiFi();
+  }
+
+  // Fast pump status check every PUMP_CHECK_INTERVAL ms
+  if (now - lastPumpCheck >= PUMP_CHECK_INTERVAL) {
+    lastPumpCheck = now;
+    checkPumpCommand();
   }
 
   // Send data every SEND_INTERVAL ms
@@ -317,6 +324,43 @@ void sendToBackend(float moisture, float temp, float hum, bool rain) {
     failedAttempts++;
     Serial.println("│  ❌ HTTP Error: " + String(httpCode) + " (attempt " + String(failedAttempts) + ")");
     backendReachable = false;
+  }
+
+  http.end();
+}
+
+// ============================================
+// FAST PUMP STATUS CHECK
+// Lightweight GET request to check pump commands
+// between sensor data sends for instant response
+// ============================================
+void checkPumpCommand() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  String url = String(SERVER_URL);
+  // Derive base URL from SERVER_URL (remove /api/sensor-data)
+  url = url.substring(0, url.indexOf("/api/")) + "/api/pump/status?deviceId=" + DEVICE_ID;
+
+  http.begin(url);
+  http.setTimeout(3000); // Short timeout for fast checks
+
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String response = http.getString();
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, response);
+    if (!error && doc["success"] == true) {
+      String command = doc["data"]["pump_status"].as<String>();
+      if (command == "ON" && pumpStatus != "ON") {
+        digitalWrite(RELAY_PIN, LOW);
+        pumpStatus = "ON";
+      } else if (command == "OFF" && pumpStatus != "OFF") {
+        digitalWrite(RELAY_PIN, HIGH);
+        pumpStatus = "OFF";
+      }
+    }
   }
 
   http.end();

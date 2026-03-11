@@ -106,7 +106,7 @@ const getPumpStatus = async (req, res, next) => {
         return res.status(200).json({
             success: true,
             data: {
-                pump_status: latest.pump_status,
+                pump_status: device.pumpStatus || "OFF",
                 automation_triggered: latest.automation_triggered,
                 last_updated: latest.createdAt,
             },
