@@ -117,16 +117,28 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, HIGH); // Keep it OFF after scan
 
-  // Connect to WiFi via WiFiManager
-  WiFiManager wm;
+  // Connect to WiFi
+  // 1. Try to connect to hardcoded credentials first
+  Serial.println("🌐 Connecting to WiFi: " + String(WIFI_SSID));
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
-  Serial.println("🌐 Launching WiFi Portal...");
-  Serial.print("   SSID: "); Serial.println(AP_NAME);
-  
-  // If we can't connect, it creates a hotspot
-  if(!wm.autoConnect(AP_NAME, AP_PASSWORD)) {
-    Serial.println("❌ Failed to connect or timeout");
-    ESP.restart();
+  unsigned long startAttemptTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  // 2. If connection failed, launch WiFiManager portal
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n❌ Hardcoded WiFi failed. Launching Setup Portal...");
+    WiFiManager wm;
+    if(!wm.autoConnect(AP_NAME, AP_PASSWORD)) {
+      Serial.println("❌ Setup Portal failed or timeout");
+      ESP.restart();
+    }
+  } else {
+    Serial.println("\n✅ Connected to WiFi!");
+    Serial.print("   IP Address: "); Serial.println(WiFi.localIP());
   }
 
   Serial.println();
