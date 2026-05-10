@@ -4,6 +4,7 @@ import {
     getSensorHistory,
     getAlerts as fetchAlerts,
     manualPumpControl,
+    toggleAutoMode as apiToggleAutoMode,
 } from "../services/apiService";
 
 const AppContext = createContext();
@@ -18,7 +19,13 @@ export const useAppContext = () => {
 
 export const AppProvider = ({ children }) => {
     // ---- State ----
-    const [sensorData, setSensorData] = useState(null);
+    const [sensorData, setSensorData] = useState({
+        soil_moisture: 0.0,
+        temperature: 0.0,
+        humidity: 0.0,
+        rain_status: false,
+        pump_status: "OFF",
+    });
     const [history, setHistory] = useState([]);
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -102,6 +109,24 @@ export const AppProvider = ({ children }) => {
         [deviceId, refreshSensorData]
     );
 
+    // ---- Toggle Auto Mode ----
+    const toggleAutoModeContext = useCallback(
+        async (autoMode) => {
+            try {
+                setError(null);
+                const result = await apiToggleAutoMode(deviceId, autoMode);
+                if (result.success) {
+                    await refreshSensorData();
+                }
+                return result;
+            } catch (err) {
+                setError(err.message || "Failed to toggle auto mode");
+                throw err;
+            }
+        },
+        [deviceId, refreshSensorData]
+    );
+
     const value = {
         sensorData,
         history,
@@ -119,6 +144,7 @@ export const AppProvider = ({ children }) => {
         refreshHistory,
         refreshAlerts,
         togglePump,
+        toggleAutoMode: toggleAutoModeContext,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

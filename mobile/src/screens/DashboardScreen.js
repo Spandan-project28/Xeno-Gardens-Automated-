@@ -7,6 +7,7 @@ import {
     RefreshControl,
     ActivityIndicator,
     StatusBar,
+    Switch,
 } from "react-native";
 import { useAppContext } from "../context/AppContext";
 import SensorCard from "../components/SensorCard";
@@ -15,9 +16,10 @@ import config from "../config/api";
 import { colors, spacing, borderRadius, typography, shadows } from "../theme/theme";
 
 const DashboardScreen = () => {
-    const { sensorData, refreshSensorData, togglePump, error, connectionStatus } = useAppContext();
+    const { sensorData, refreshSensorData, togglePump, toggleAutoMode, error, connectionStatus } = useAppContext();
     const [refreshing, setRefreshing] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
+    const [autoMode, setAutoMode] = useState(false); // default: MANUAL
 
     // Initial load + auto-refresh every 10s
     useEffect(() => {
@@ -31,24 +33,19 @@ const DashboardScreen = () => {
         return () => clearInterval(interval);
     }, [refreshSensorData]);
 
+    // Sync autoMode from server data
+    useEffect(() => {
+        if (sensorData?.autoMode !== undefined) {
+            setAutoMode(sensorData.autoMode);
+        }
+    }, [sensorData?.autoMode]);
+
     // Pull to refresh
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await refreshSensorData();
         setRefreshing(false);
     }, [refreshSensorData]);
-
-    if (initialLoading || connectionStatus === "connecting") {
-        return (
-            <View style={styles.loadingContainer}>
-                <View style={styles.loadingGlow}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                </View>
-                <Text style={styles.loadingText}>Connecting to Xeno Garden...</Text>
-                <Text style={styles.loadingSubtext}>Establishing secure link to backend</Text>
-            </View>
-        );
-    }
 
     // Full-screen offline state if we have no data at all
     if (!sensorData && connectionStatus === "offline") {
@@ -142,7 +139,9 @@ const DashboardScreen = () => {
                     <View style={styles.gridRow}>
                         <SensorCard
                             label="Soil Moisture"
-                            value={data?.soil_moisture?.toFixed(1)}
+                            value={data?.soil_moisture != null 
+                                ? (data.soil_moisture < 10 ? `0${data.soil_moisture.toFixed(1)}` : data.soil_moisture.toFixed(1))
+                                : "00.0"}
                             unit="%"
                             type="soil_moisture"
                         />
@@ -169,9 +168,32 @@ const DashboardScreen = () => {
                 </View>
 
                 {/* Pump Control Section */}
-                <View style={styles.sectionHeader}>
-                    <View style={[styles.sectionDot, { backgroundColor: colors.emerald }]} />
-                    <Text style={styles.sectionTitle}>Pump Control</Text>
+                <View style={[styles.sectionHeader, { justifyContent: "space-between" }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <View style={[styles.sectionDot, { backgroundColor: colors.emerald }]} />
+                        <Text style={styles.sectionTitle}>Pump Control</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Text style={[
+                            { marginRight: 8, fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
+                            { color: autoMode ? colors.emerald : colors.coral }
+                        ]}>
+                            {autoMode ? "AUTO" : "MANUAL"}
+                        </Text>
+                        <Switch
+                            value={autoMode}
+                            onValueChange={async (val) => {
+                                setAutoMode(val); // optimistic — instant UI feedback
+                                try {
+                                    await toggleAutoMode(val);
+                                } catch (e) {
+                                    setAutoMode(!val); // revert if API fails
+                                }
+                            }}
+                            trackColor={{ false: "rgba(255,107,107,0.4)", true: colors.emerald }}
+                            thumbColor={"#fff"}
+                        />
+                    </View>
                 </View>
                 <PumpToggle
                     pumpStatus={data?.pump_status || "OFF"}

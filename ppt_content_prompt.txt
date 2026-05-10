@@ -1,0 +1,28 @@
+# Xeno-Gardens - Automated Drip Irrigation System (Presentation Content Guide)
+
+You can use the details below as a prompt for ChatGPT, Claude, or any other AI to directly generate your PPT slides and Case Study.
+
+## 1. System Design & Architecture
+*   **Architecture Type:** Three-tier IoT Architecture (Edge, Backend, Presentation).
+*   **Edge Layer (Hardware):** An ESP32 microcontroller acts as the central brain on the physical site. It interfaces with a variety of sensors: Soil Moisture, DHT11 (Temperature & Humidity), Rain Sensor, and pH Sensor. It controls a 12V Water Pump via a relay or MOSFET.
+*   **Network/Connectivity Layer:** The ESP32 connects to the local WiFi network (SSID: T5-018) and communicates with the backend server securely over HTTP REST APIs.
+*   **Backend Layer (Server & Database):** A Node.js backend using the Express.js framework handles API requests. It acts as the "Automation Engine". Data is permanently stored using MongoDB, managed by Mongoose ORM.
+*   **Presentation Layer (Mobile App):** A cross-platform mobile application built with React Native and Expo (SDK 54). It manages state using React Context API and handles network requests using Axios. 
+
+## 2. Technical details & Working Flow
+*   **Data Collection Cycle:** The ESP32 periodically polls the connected analog and digital sensors. 
+*   **Data Transmission:** The ESP32 formats this data into a JSON payload and makes a `POST` request to the backend endpoint `/api/sensor-data`.
+*   **Automation Logic (Rule Engine):** Once the backend receives the data, the Rules Engine evaluates conditions:
+    *   *Rule 1:* If Moisture < 30% AND Temp > 30°C AND No Rain detected -> Send command to start pump.
+    *   *Rule 2:* If Moisture >= 40% -> Send command to stop pump.
+    *   *Rule 3 (Alerts):* If pH < 6.0 OR Moisture drops critically -> Generate backend Alert logs.
+*   **Command Execution:** The backend responds to the ESP32's POST request with an action command (e.g., {"pumpState": "ON"}). The ESP32 reads this and toggles the relay accordingly.
+*   **User Interaction:** The mobile app fetches data from endpoints like `/api/sensor-data/latest` and `/api/alerts`. The user can view line-charts for history, read active alerts, and use the `/api/pump/manual` endpoint to manually override the pump state.
+
+## 3. Implementation Status & Work Progress
+*   **Hardware / Firmware (Completed):** The C/C++ firmware (`firmware.ino`) is written and configured (`config.h`). Sensor calibration, debouncing, and API posting logic is implemented.
+*   **Backend Server (Completed):** All core components are built. Models (`Device.js`, `SensorReading.js`, `AlertLog.js`) are active. The automation controllers and RESTful routing are fully functional.
+*   **Mobile App (Completed):** The React Native app is built out with four core screens: Dashboard (live view), History (trends charted via `react-native-chart-kit`), Alerts, and Settings.
+*   **Current Progress / Integration Phase:** Currently focusing on the deployment and communication phase—ensuring the local IP configuration (`mobile/src/config/api.js`) and the ESP32 credentials perfectly route to the locally hosted backend server before transitioning to cloud hosting (Atlas).
+
+

@@ -19,10 +19,16 @@ const manualPumpControl = async (req, res, next) => {
 
         const { deviceId, action } = req.body;
 
+        // Set override for 5 minutes
+        const overrideUntil = new Date(Date.now() + 5 * 60 * 1000);
+
         // Update pump status ATOMICALLY — prevents race condition with sensor updates
         const device = await Device.findOneAndUpdate(
             { deviceId },
-            { pumpStatus: action },
+            { 
+                pumpStatus: action,
+                manualOverrideUntil: overrideUntil 
+            },
             { new: true }
         );
 
@@ -107,6 +113,7 @@ const getPumpStatus = async (req, res, next) => {
             success: true,
             data: {
                 pump_status: device.pumpStatus || "OFF",
+                autoMode: device.autoMode,
                 automation_triggered: latest.automation_triggered,
                 last_updated: latest.createdAt,
             },
@@ -116,7 +123,48 @@ const getPumpStatus = async (req, res, next) => {
     }
 };
 
+// ============================================
+// POST /api/pump/auto
+// Toggle Auto/Manual Mode
+// ============================================
+const toggleAutoMode = async (req, res, next) => {
+    try {
+        const { deviceId, autoMode } = req.body;
+
+        if (typeof autoMode !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: "autoMode (boolean) is required",
+            });
+        }
+
+        const device = await Device.findOneAndUpdate(
+            { deviceId },
+            { autoMode },
+            { new: true }
+        );
+
+        if (!device) {
+            return res.status(404).json({
+                success: false,
+                message: `Device '${deviceId}' not found`,
+            });
+        }
+
+        console.log(`🤖 MODE CHANGE: autoMode=${autoMode} for device=${deviceId}`);
+
+        return res.status(200).json({
+            success: true,
+            message: `Auto mode set to ${autoMode}`,
+            autoMode: device.autoMode,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     manualPumpControl,
     getPumpStatus,
+    toggleAutoMode,
 };

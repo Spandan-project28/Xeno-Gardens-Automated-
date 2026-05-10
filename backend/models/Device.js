@@ -27,6 +27,14 @@ const deviceSchema = new mongoose.Schema(
             enum: ["ON", "OFF"],
             default: "OFF",
         },
+        autoMode: {
+            type: Boolean,
+            default: false,
+        },
+        manualOverrideUntil: {
+            type: Date,
+            default: null,
+        },
     },
     {
         timestamps: true, // adds createdAt, updatedAt

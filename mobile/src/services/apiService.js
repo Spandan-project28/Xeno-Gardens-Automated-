@@ -62,6 +62,18 @@ export const getPumpStatus = async (deviceId) => {
     }
 };
 
+export const toggleAutoMode = async (deviceId, autoMode) => {
+    try {
+        const response = await api.post(config.ENDPOINTS.PUMP_AUTO, {
+            deviceId,
+            autoMode,
+        });
+        return response.data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
 // ============================================
 // Alert APIs
 // ============================================

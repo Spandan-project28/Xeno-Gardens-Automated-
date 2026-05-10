@@ -27,12 +27,23 @@ const submitSensorData = async (req, res, next) => {
         } = req.body;
 
         // 1. Find or create device, update lastSeen ATOMICALLY
-        // This is critical: prevents sensor updates from overwriting pumpStatus
+        // On first create (upsert), force manual mode + pump OFF
         let device = await Device.findOneAndUpdate(
             { deviceId },
             { lastSeen: new Date() },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
         );
+
+        // Force existing devices to safe defaults if autoMode is missing
+        if (device.autoMode === undefined || device.autoMode === null) {
+            device.autoMode = false;
+            device.pumpStatus = "OFF";
+            await device.save();
+        }
 
         if (!device.location) {
             device.location = req.body.location || "Unspecified";
@@ -122,6 +133,7 @@ const getLatestReading = async (req, res, next) => {
             data: {
                 ...latest,
                 pump_status: deviceDoc?.pumpStatus ?? latest.pump_status,
+                autoMode: deviceDoc?.autoMode ?? false,
             },
         });
     } catch (error) {
